@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <chrono>
+#include <DirectXMath.h>
 
 #include "imgui.h"
 #include "backends/imgui_impl_win32.h"
@@ -29,6 +30,8 @@
 #pragma comment(lib, "d3dcompiler.lib")
 
 using Microsoft::WRL::ComPtr;
+using namespace DirectX;
+
 static const UINT FrameCount = 2;
 
 static std::string Narrow(LPCWSTR ws) {
@@ -168,26 +171,33 @@ float4 PSMain(PSIn i):SV_TARGET{ return float4(i.col,1); }
     }
 };
 
-// Cube Scene (depth on, root constants: angle)
+// Cube Scene (perspective camera from upper corner; depth on)
 struct CubeScene : IScene {
     ComPtr<ID3D12PipelineState>    pso;
     ComPtr<ID3D12RootSignature>    rootSig;
     ComPtr<ID3D12Resource>         vb, ib;
     D3D12_VERTEX_BUFFER_VIEW       vbv{};
     D3D12_INDEX_BUFFER_VIEW        ibv{};
-    float angle = 0.0f;
+
+    // camera / projection
+    UINT width = 1280, height = 720;
+    float angle = 0.0f;         // model rotation around Y
+    float fovY = XM_PIDIV4;     // 45 degrees
+    float znearP = 0.1f, zfarP = 100.0f;
 
     void Init(ID3D12Device* device) override {
-        // Root signature with 1x 32-bit constant (float Angle) at b0
+        // Root signature: 16x32-bit constants for MVP matrix
         D3D12_ROOT_PARAMETER param{};
         param.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
-        param.Constants.Num32BitValues = 1;
+        param.Constants.Num32BitValues = 16;   // float4x4
         param.Constants.ShaderRegister = 0;
         param.Constants.RegisterSpace = 0;
+
         D3D12_ROOT_SIGNATURE_DESC rs{};
         rs.NumParameters = 1;
         rs.pParameters = &param;
         rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
         ComPtr<ID3DBlob> sig, err;
         HR(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err),
             "D3D12SerializeRootSignature(Cube)",
@@ -195,27 +205,21 @@ struct CubeScene : IScene {
         HR(device->CreateRootSignature(0, sig->GetBufferPointer(), sig->GetBufferSize(),
             IID_PPV_ARGS(&rootSig)), "CreateRootSignature(Cube)");
 
-        // Shaders: do rotation in VS using Angle; simple 0..1 z-map, no perspective
+        // Shaders: transform by MVP (provided as root constants)
         const char* vsSrc = R"(
-cbuffer Params : register(b0) { float Angle; }
+cbuffer Params : register(b0) { float4x4 MVP; }     // column-major by default
 struct VSIn { float3 pos:POSITION; float3 col:COLOR; };
 struct PSIn { float4 pos:SV_POSITION; float3 col:COLOR; };
 PSIn VSMain(VSIn i){
-    float s = sin(Angle), c = cos(Angle);
-    float3 p = i.pos;
-    // Rotate around Y
-    float3 r = float3(c*p.x + s*p.z, p.y, -s*p.x + c*p.z);
-    // Map z from [-1,1] to [0,1] for D3D depth
-    float z = r.z * 0.5 + 0.5;
     PSIn o;
-    o.pos = float4(r.x, r.y, z, 1.0);
+    o.pos = mul(float4(i.pos,1), MVP);
     o.col = i.col;
     return o;
 }
 )";
         const char* psSrc = R"(
 struct PSIn { float4 pos:SV_POSITION; float3 col:COLOR; };
-float4 PSMain(PSIn i):SV_TARGET{ return float4(i.col,1); }
+float4 PSMain(PSIn i):SV_TARGET { return float4(i.col,1); }
 )";
         ComPtr<ID3DBlob> vs, ps, shErr;
         HR(D3DCompile(vsSrc, (UINT)std::strlen(vsSrc), nullptr, nullptr, nullptr,
@@ -242,8 +246,9 @@ float4 PSMain(PSIn i):SV_TARGET{ return float4(i.col,1); }
         psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
         psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
         psoDesc.SampleDesc.Count = 1;
-        psoDesc.SampleMask = UINT_MAX;                    // <-- IMPORTANT
-        // Blend
+        psoDesc.SampleMask = UINT_MAX;                    // IMPORTANT: enable all samples
+
+        // Blend (default)
         psoDesc.BlendState.AlphaToCoverageEnable = FALSE;
         psoDesc.BlendState.IndependentBlendEnable = FALSE;
         const D3D12_RENDER_TARGET_BLEND_DESC rt = {
@@ -253,10 +258,12 @@ float4 PSMain(PSIn i):SV_TARGET{ return float4(i.col,1); }
             D3D12_LOGIC_OP_NOOP, D3D12_COLOR_WRITE_ENABLE_ALL
         };
         for (int i = 0; i < 8; ++i) psoDesc.BlendState.RenderTarget[i] = rt;
+
         // Rasterizer
         psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-        psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE; // <-- safer for demo
+        psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;  // safer for demo
         psoDesc.RasterizerState.DepthClipEnable = TRUE;
+
         // Depth
         psoDesc.DepthStencilState.DepthEnable = TRUE;
         psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
@@ -266,35 +273,29 @@ float4 PSMain(PSIn i):SV_TARGET{ return float4(i.col,1); }
         HR(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso)),
             "CreateGraphicsPipelineState(Cube)");
 
-
-        // Geometry: a unit cube centered at origin
+        // Geometry: a colored cube
         struct V { float p[3]; float c[3]; };
         const float s = 0.5f;
         V verts[] = {
             // Front (z=+s)
             {{-s,-s, s},{1,0,0}}, {{ s,-s, s},{0,1,0}}, {{ s, s, s},{0,0,1}}, {{-s, s, s},{1,1,0}},
-            // Back (z=-s)
+            // Back  (z=-s)
             {{-s,-s,-s},{1,0,1}}, {{ s,-s,-s},{0,1,1}}, {{ s, s,-s},{1,1,1}}, {{-s, s,-s},{0.2f,0.6f,1}},
         };
         uint16_t idx[] = {
-            // Front
-            0,1,2, 0,2,3,
-            // Right
-            1,5,6, 1,6,2,
-            // Back
-            5,4,7, 5,7,6,
-            // Left
-            4,0,3, 4,3,7,
-            // Top
-            3,2,6, 3,6,7,
-            // Bottom
-            4,5,1, 4,1,0
+            0,1,2, 0,2,3,   // Front
+            1,5,6, 1,6,2,   // Right
+            5,4,7, 5,7,6,   // Back
+            4,0,3, 4,3,7,   // Left
+            3,2,6, 3,6,7,   // Top
+            4,5,1, 4,1,0    // Bottom
         };
 
         // VB
         UINT vbSize = sizeof(verts);
         D3D12_HEAP_PROPERTIES heap{}; heap.Type = D3D12_HEAP_TYPE_UPLOAD;
-        D3D12_RESOURCE_DESC vbDesc{}; vbDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; vbDesc.Width = vbSize; vbDesc.Height = 1; vbDesc.DepthOrArraySize = 1; vbDesc.MipLevels = 1; vbDesc.SampleDesc.Count = 1; vbDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        D3D12_RESOURCE_DESC vbDesc{}; vbDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; vbDesc.Width = vbSize;
+        vbDesc.Height = 1; vbDesc.DepthOrArraySize = 1; vbDesc.MipLevels = 1; vbDesc.SampleDesc.Count = 1; vbDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         HR(device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &vbDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&vb)),
             "CreateCommittedResource(CubeVB)");
         void* p = nullptr; D3D12_RANGE r{ 0,0 };
@@ -303,7 +304,8 @@ float4 PSMain(PSIn i):SV_TARGET{ return float4(i.col,1); }
 
         // IB
         UINT ibSize = sizeof(idx);
-        D3D12_RESOURCE_DESC ibDesc{}; ibDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; ibDesc.Width = ibSize; ibDesc.Height = 1; ibDesc.DepthOrArraySize = 1; ibDesc.MipLevels = 1; ibDesc.SampleDesc.Count = 1; ibDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        D3D12_RESOURCE_DESC ibDesc{}; ibDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER; ibDesc.Width = ibSize;
+        ibDesc.Height = 1; ibDesc.DepthOrArraySize = 1; ibDesc.MipLevels = 1; ibDesc.SampleDesc.Count = 1; ibDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
         HR(device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &ibDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&ib)),
             "CreateCommittedResource(CubeIB)");
         HR(ib->Map(0, &r, &p), "CubeIB->Map"); std::memcpy(p, idx, ibSize); ib->Unmap(0, nullptr);
@@ -311,21 +313,44 @@ float4 PSMain(PSIn i):SV_TARGET{ return float4(i.col,1); }
     }
 
     void Render(ID3D12GraphicsCommandList* cl) override {
-        // Update angle over time (small step per frame; the app can also set this)
+        // Rotate model a bit each frame
         angle += 0.01f;
+
+        // --- Camera in the "upper corner" ---
+        // Position the camera up and to the right, looking at origin.
+        XMVECTOR eye = XMVectorSet(2.0f, 2.0f, -2.0f, 0.0f); // upper-right, slightly back
+        XMVECTOR at = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
+        XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+        float aspect = (height == 0) ? 1.0f : (float)width / (float)height;
+
+        XMMATRIX world = XMMatrixRotationY(angle);
+        XMMATRIX view = XMMatrixLookAtLH(eye, at, up);
+        XMMATRIX proj = XMMatrixPerspectiveFovLH(fovY, aspect, znearP, zfarP);
+
+        // HLSL defaults to column-major matrices. We send a transposed row-major buffer.
+        XMMATRIX wvpT = XMMatrixTranspose(world * view * proj);
+        XMFLOAT4X4 m; XMStoreFloat4x4(&m, wvpT);
+
         cl->SetPipelineState(pso.Get());
         cl->SetGraphicsRootSignature(rootSig.Get());
-        cl->SetGraphicsRoot32BitConstants(0, 1, &angle, 0);
         cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
         cl->IASetVertexBuffers(0, 1, &vbv);
         cl->IASetIndexBuffer(&ibv);
+        cl->SetGraphicsRoot32BitConstants(0, 16, &m, 0);  // send MVP
         cl->DrawIndexedInstanced(36, 1, 0, 0, 0);
+    }
+
+    void OnResize(UINT w, UINT h) override {
+        width = (w == 0 ? 1 : w);
+        height = (h == 0 ? 1 : h);
     }
 
     void Cleanup() override {
         vb.Reset(); ib.Reset(); pso.Reset(); rootSig.Reset();
     }
 };
+
 
 // -------------------- Application --------------------
 class D3D12ScenesApp {
