@@ -20,6 +20,15 @@ set(IMGUI_SOURCES
 
 add_executable(rigidbody
     main.cpp
+	App.h
+	App.cpp
+	DxUtils.h
+	DxUtils.cpp
+	Scene.h
+	TriangleScene.h
+	TriangleScene.cpp
+	WhirligigScene.h
+	WhirligigScene.cpp
     ${IMGUI_SOURCES}
 )
 
