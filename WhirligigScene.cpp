@@ -1,4 +1,4 @@
-#include "WhirligigScene.h"
+﻿#include "WhirligigScene.h"
 #include <windowsx.h>
 
 #include <d3dcompiler.h>
@@ -61,8 +61,7 @@ XMFLOAT3X3 WhirligigScene::Inverse3x3(const XMFLOAT3X3& A) {
 
     XMFLOAT3X3 R{};
     if (std::fabs(det) < 1e-9f) {
-        return R; // zero matrix if singular
-    }
+        return R;    }
 
     float id = 1.0f / det;
     R._11 = (a22 * a33 - a23 * a32) * id;
@@ -93,9 +92,7 @@ XMVECTOR WhirligigScene::TorqueBody(FXMVECTOR q) {
 
     XMVECTOR gW = XMVectorSet(0.0f, -G, 0.0f, 0.0f);
 
-    XMMATRIX R = XMMatrixRotationQuaternion(q);   // body -> world
-    XMMATRIX RT = XMMatrixTranspose(R);           // world -> body
-
+    XMMATRIX R = XMMatrixRotationQuaternion(q);      XMMATRIX RT = XMMatrixTranspose(R);          
     XMVECTOR gB = XMVector3TransformNormal(gW, RT);
     XMVECTOR F = XMVectorScale(gB, mass);
 
@@ -109,8 +106,7 @@ XMVECTOR WhirligigScene::TorqueBody(FXMVECTOR q) {
 
 XMVECTOR WhirligigScene::fOmega(FXMVECTOR w, FXMVECTOR q) {
     XMVECTOR Iw = MulMat3Vec(I, w);
-    XMVECTOR cor = XMVector3Cross(Iw, w); // Iw x w
-    XMVECTOR N = TorqueBody(q);
+    XMVECTOR cor = XMVector3Cross(Iw, w);    XMVECTOR N = TorqueBody(q);
     XMVECTOR rhs = XMVectorSubtract(N, cor);
     XMVECTOR dw = MulMat3Vec(Iinv, rhs);
     return XMVectorSetW(dw, 0.0f);
@@ -123,9 +119,7 @@ XMVECTOR WhirligigScene::fQ(FXMVECTOR w, FXMVECTOR q) {
         XMVectorGetZ(w),
         0.0f);
 
-    // dq = q * O  (XMQuaternionMultiply(Q1,Q2) zwraca Q2*Q1)
-    XMVECTOR dq = XMQuaternionMultiply(omegaQuat, q); // = q * omegaQuat
-    dq = XMVectorScale(dq, 0.5f);
+    XMVECTOR dq = XMQuaternionMultiply(omegaQuat, q);    dq = XMVectorScale(dq, 0.5f);
     return dq;
 }
 
@@ -264,7 +258,6 @@ float4 PSMain(PSIn i):SV_TARGET { return float4(i.col,1); }
     psoDesc.SampleDesc.Count = 1;
     psoDesc.SampleMask = UINT_MAX;
 
-    // Blend
     psoDesc.BlendState.AlphaToCoverageEnable = FALSE;
     psoDesc.BlendState.IndependentBlendEnable = FALSE;
     const D3D12_RENDER_TARGET_BLEND_DESC rt = {
@@ -275,12 +268,10 @@ float4 PSMain(PSIn i):SV_TARGET { return float4(i.col,1); }
     };
     for (int i = 0; i < 8; ++i) psoDesc.BlendState.RenderTarget[i] = rt;
 
-    // Rasterizer
     psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
     psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
     psoDesc.RasterizerState.DepthClipEnable = TRUE;
 
-    // Depth
     psoDesc.DepthStencilState.DepthEnable = TRUE;
     psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
     psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
@@ -299,15 +290,12 @@ void WhirligigScene::BuildGeometry(ID3D12Device* device) {
     buf.Height = 1; buf.DepthOrArraySize = 1; buf.MipLevels = 1;
     buf.SampleDesc.Count = 1; buf.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-    // Cube
     {
         V vertsCube[] = {
-            // front (z=1)
             {{0,0,1},{1,0,0}},
             {{1,0,1},{0,1,0}},
             {{1,1,1},{0,0,1}},
             {{0,1,1},{1.0f,0.5f,0.0f}},
-            // back (z=0)
             {{0,0,0},{1,0,1}},
             {{1,0,0},{0,1,1}},
             {{1,1,0},{1,1,1}},
@@ -348,7 +336,6 @@ void WhirligigScene::BuildGeometry(ID3D12Device* device) {
         ibvCube.SizeInBytes = ibSize;
     }
 
-    // Diagonal
     {
         V diag[2] = {
             {{0,0,0},{1,1,0}},
@@ -368,7 +355,6 @@ void WhirligigScene::BuildGeometry(ID3D12Device* device) {
         vbvDiag.SizeInBytes = diagSize;
     }
 
-    // Trajectory
     {
         UINT trajSize = MaxTrajPoints * sizeof(TrajVertex);
         buf.Width = trajSize;
@@ -390,7 +376,6 @@ void WhirligigScene::BuildGeometry(ID3D12Device* device) {
         vbvTraj.SizeInBytes = trajSize;
     }
 
-    // Grid in XZ plane (Y up, RH)
     {
         static const int GRID_HALF = 10;
         static const int GRID_LINES = 2 * GRID_HALF + 1;
@@ -429,7 +414,6 @@ void WhirligigScene::BuildGeometry(ID3D12Device* device) {
         vbvGrid.SizeInBytes = gridSize;
     }
 
-    // Axes (positive directions only)
     {
         const float L = 3.0f;
         V axes[6] = {
@@ -469,40 +453,49 @@ void WhirligigScene::ResetState() {
     rCM = XMFLOAT3(a * 0.5f, a * 0.5f, a * 0.5f);
     mass = density * a * a * a;
 
-    float s = mass * a * a;
+    XMFLOAT3X3 Icm{};
+    float Icenter = (1.0f / 6.0f) * mass * a * a;
+
+    Icm._11 = Icenter;
+    Icm._22 = Icenter;
+    Icm._33 = Icenter;
+
+    Icm._12 = Icm._13 = Icm._21 = Icm._23 = Icm._31 = Icm._32 = 0.0f;
+
+    float dx = 0.5f * a;
+    float dy = 0.5f * a;
+    float dz = 0.5f * a;
+    float d2 = dx * dx + dy * dy + dz * dz;
+
     XMFLOAT3X3 Ibody{};
-    Ibody._11 = 2.0f / 3.0f * s;
-    Ibody._22 = 2.0f / 3.0f * s;
-    Ibody._33 = 2.0f / 3.0f * s;
-    Ibody._12 = Ibody._21 = -0.25f * s;
-    Ibody._13 = Ibody._31 = -0.25f * s;
-    Ibody._23 = Ibody._32 = -0.25f * s;
+
+    Ibody._11 = Icm._11 + mass * (d2 - dx * dx);
+    Ibody._22 = Icm._22 + mass * (d2 - dy * dy);
+    Ibody._33 = Icm._33 + mass * (d2 - dz * dz);
+
+    Ibody._12 = Ibody._21 = -mass * dx * dy;
+    Ibody._13 = Ibody._31 = -mass * dx * dz;
+    Ibody._23 = Ibody._32 = -mass * dy * dz;
     I = Ibody;
     Iinv = Inverse3x3(I);
 
     float theta = XMConvertToRadians(inflectionDeg);
     float s2 = std::sqrt(2.0f);
 
-    // body-space diagonal (pivot -> opposite corner)
     XMVECTOR uBody = XMVector3Normalize(
         XMVectorSet(1.0f, 1.0f, 1.0f, 0.0f));
 
-    // desired direction in world-space
     XMVECTOR target = XMVectorSet(
         std::sin(theta) / s2,
         std::cos(theta),
         std::sin(theta) / s2,
         0.0f);
 
-    // --- shortest arc from uBody to target (inline, no MakeShortestArcQuat) ---
     XMVECTOR axis = XMVector3Cross(uBody, target);
     float axisLenSq = XMVectorGetX(XMVector3LengthSq(axis));
 
     XMVECTOR q;
     if (axisLenSq < 1e-6f) {
-        // vectors almost parallel or antiparallel:
-        // in our parameter range (theta in [0,90]) this practically won't happen,
-        // but for safety we just use identity (no extra tilt around uBody).
         q = XMQuaternionIdentity();
     }
     else {
@@ -515,7 +508,6 @@ void WhirligigScene::ResetState() {
 
     Q = XMQuaternionNormalize(q);
 
-    // spin around body diagonal with magnitude omegaMag
     omega = XMVectorScale(uBody, omegaMag);
     omega = XMVectorSetW(omega, 0.0f);
 
@@ -653,7 +645,6 @@ void WhirligigScene::Render(ID3D12GraphicsCommandList* cl) {
     cl->SetPipelineState(pso.Get());
     cl->SetGraphicsRootSignature(rootSig.Get());
 
-    // Grid + Axes
     {
         XMMATRIX wvpT = XMMatrixTranspose(worldI * view * proj);
         XMFLOAT4X4 m; XMStoreFloat4x4(&m, wvpT);
@@ -672,7 +663,6 @@ void WhirligigScene::Render(ID3D12GraphicsCommandList* cl) {
         }
     }
 
-    // Cube + diagonal
     {
         XMMATRIX wvpT = XMMatrixTranspose(worldCube * view * proj);
         XMFLOAT4X4 m; XMStoreFloat4x4(&m, wvpT);
@@ -692,7 +682,6 @@ void WhirligigScene::Render(ID3D12GraphicsCommandList* cl) {
         }
     }
 
-    // Trajectory (ring buffer)
     if (showTrajectory && trajCount >= 2 && trajVerts) {
         cl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINESTRIP);
         cl->IASetVertexBuffers(0, 1, &vbvTraj);

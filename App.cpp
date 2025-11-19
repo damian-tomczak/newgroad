@@ -61,7 +61,6 @@ LRESULT CALLBACK D3D12ScenesApp::WndProcThunk(HWND hWnd, UINT msg, WPARAM wParam
 }
 
 LRESULT D3D12ScenesApp::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    // Najpierw ImGui
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
         return 1;
 
@@ -332,21 +331,17 @@ static bool SliderFloatWithInput(const char* label,
 
     ImGui::PushID(label);
 
-    // Label
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted(label);
     ImGui::SameLine();
 
-    // Slider (clamped)
     ImGui::SetNextItemWidth(150.0f);
     changed |= ImGui::SliderFloat("##slider", v, v_min, v_max, format);
     ImGui::SameLine();
 
-    // Text input (free typing, then we clamp)
     ImGui::SetNextItemWidth(80.0f);
     changed |= ImGui::InputFloat("##input", v, 0.0f, 0.0f, format);
 
-    // Clamp to slider range for safety; remove if you truly want out-of-range values.
     if (*v < v_min) { *v = v_min; }
     if (*v > v_max) { *v = v_max; }
 
@@ -367,12 +362,10 @@ static bool SliderIntWithInput(const char* label,
     ImGui::TextUnformatted(label);
     ImGui::SameLine();
 
-    // Slider (clamped)
     ImGui::SetNextItemWidth(150.0f);
     changed |= ImGui::SliderInt("##slider", v, v_min, v_max);
     ImGui::SameLine();
 
-    // Text input (free typing, then we clamp)
     ImGui::SetNextItemWidth(80.0f);
     changed |= ImGui::InputInt("##input", v);
 
@@ -382,10 +375,6 @@ static bool SliderIntWithInput(const char* label,
     ImGui::PopID();
     return changed;
 }
-
-//---------------------------------------------------------------------
-// UI
-//---------------------------------------------------------------------
 
 void D3D12ScenesApp::DrawUI()
 {
@@ -408,7 +397,6 @@ void D3D12ScenesApp::DrawUI()
 
     ImGui::Begin("Scenes", nullptr, flags);
 
-    // Menu width: slider + input
     ImGui::SliderFloat("Menu width", &m_menuWidth, minWidth, maxWidth);
 
     const char* items[] = { "Triangle", "Whirligig" };
@@ -435,11 +423,12 @@ void D3D12ScenesApp::DrawUI()
 
         bool changed = false;
 
-        changed |= SliderFloatWithInput("Cube size",
+        // ---- parametry fizyczne z jednostkami ----
+        changed |= SliderFloatWithInput("Cube size [m]",
             &m_whirligig.cubeSize,
             0.2f, 2.0f);
 
-        changed |= SliderFloatWithInput("Density",
+        changed |= SliderFloatWithInput("Density [kg/m^3]",
             &m_whirligig.density,
             0.1f, 10.0f);
 
@@ -447,24 +436,24 @@ void D3D12ScenesApp::DrawUI()
             &m_whirligig.inflectionDeg,
             0.0f, 90.0f);
 
-        changed |= SliderFloatWithInput("|omega|",
+        changed |= SliderFloatWithInput("|omega| [rad/s]",
             &m_whirligig.omegaMag,
-            0.0f, 10.0f);
+            0.0f, 50.0f);
 
         int len = (int)m_whirligig.trajLength;
-        changed |= SliderIntWithInput("Trajectory length",
+        changed |= SliderIntWithInput("Trajectory length [points]",
             &len,
             100,
             (int)WhirligigScene::MaxTrajPoints);
         m_whirligig.trajLength = (UINT)len;
 
-        ImGui::Checkbox("Use gravity", &m_whirligig.useGravity);
+        ImGui::Checkbox("Use gravity (g = 9.81 m/s^2)", &m_whirligig.useGravity);
 
-        changed |= SliderFloatWithInput("Speed",
+        changed |= SliderFloatWithInput("Speed [× real time]",
             &m_whirligig.speed,
             1.0f, 100.0f);
 
-        changed |= SliderFloatWithInput("dt",
+        changed |= SliderFloatWithInput("dt [s]",
             &m_whirligig.dt,
             0.001f, 0.1f,
             "%.4f");
@@ -474,10 +463,6 @@ void D3D12ScenesApp::DrawUI()
         }
 
         ImGui::Separator();
-        //ImGui::Text("CAD camera (RH):");
-        //ImGui::BulletText("LMB drag: orbit");
-        //ImGui::BulletText("RMB drag: pan");
-        //ImGui::BulletText("Wheel: zoom");
     }
 
     ImGui::Separator();
@@ -487,6 +472,7 @@ void D3D12ScenesApp::DrawUI()
 
     ImGui::End();
 }
+
 
 void D3D12ScenesApp::MoveToNextFrame() {
     const UINT64 fence = m_fenceValues[m_frameIndex];

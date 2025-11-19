@@ -23,7 +23,6 @@ struct WhirligigScene : public IScene {
     void OnMouseMessage(UINT msg, WPARAM wParam, LPARAM lParam);
     void ResetState();
 
-    // public UI state
     bool  running;
     bool  showCube;
     bool  showDiagonal;
@@ -43,20 +42,16 @@ struct WhirligigScene : public IScene {
     UINT trajLength;
 
 private:
-    // pipeline
     ComPtr<ID3D12PipelineState> pso;
     ComPtr<ID3D12RootSignature> rootSig;
 
-    // cube geometry (attached at corner in world)
     ComPtr<ID3D12Resource> vbCube, ibCube;
     D3D12_VERTEX_BUFFER_VIEW vbvCube{};
     D3D12_INDEX_BUFFER_VIEW  ibvCube{};
 
-    // diagonal line (2 vertices)
     ComPtr<ID3D12Resource> vbDiag;
     D3D12_VERTEX_BUFFER_VIEW vbvDiag{};
 
-    // trajectory line strip (dynamic, world-space verts, ring buffer)
     struct TrajVertex { float p[3]; float c[3]; };
     ComPtr<ID3D12Resource> vbTraj;
     D3D12_VERTEX_BUFFER_VIEW vbvTraj{};
@@ -64,7 +59,6 @@ private:
     UINT trajStart;
     TrajVertex* trajVerts;
 
-    // grid & axes (world-space lines)
     ComPtr<ID3D12Resource> vbGrid;
     D3D12_VERTEX_BUFFER_VIEW vbvGrid{};
     UINT gridVertexCount;
@@ -73,11 +67,9 @@ private:
     D3D12_VERTEX_BUFFER_VIEW vbvAxes{};
     UINT axesVertexCount;
 
-    // view size
     UINT width;
     UINT height;
 
-    // --- CAD camera state (right-handed) ---
     float camYaw;
     float camPitch;
     float camDist;
@@ -87,7 +79,6 @@ private:
     bool  panning;
     POINT lastMouse;
 
-    // physics state
     float                 mass;
     DirectX::XMFLOAT3X3   I;
     DirectX::XMFLOAT3X3   Iinv;
@@ -95,10 +86,8 @@ private:
     DirectX::XMVECTOR     Q;
     DirectX::XMVECTOR     omega;
 
-    // gravity
     const float G;
 
-    // time accumulator
     std::chrono::steady_clock::time_point lastTime;
     bool haveLast;
 
