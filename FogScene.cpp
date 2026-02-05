@@ -253,7 +253,7 @@ void FogScene::OnResize(UINT inWidth, UINT inHeight)
     height = (std::max)(1u, inHeight);
 }
 
-void FogScene::Draw(ID3D12GraphicsCommandList* commandList, UINT frameIndex)
+void FogScene::Draw(ID3D12GraphicsCommandList* commandList, UINT frameIndex, bool applyFog)
 {
     FogCBData cb{};
     cb.invSize[0] = 1.0f / static_cast<float>(width);
@@ -261,7 +261,7 @@ void FogScene::Draw(ID3D12GraphicsCommandList* commandList, UINT frameIndex)
     cb.fogColor[0] = fogColor[0];
     cb.fogColor[1] = fogColor[1];
     cb.fogColor[2] = fogColor[2];
-    cb.fogDensity = fogEnabled ? fogDensity : 0.0f;
+    cb.fogDensity = (applyFog && fogEnabled) ? fogDensity : 0.0f;
     cb.fogStart = fogStart;
     cb.fogEnd = fogEnd;
     cb.nearZ = nearZ;
