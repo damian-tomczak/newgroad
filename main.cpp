@@ -13,7 +13,7 @@
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     try {
-        D3D12ScenesApp app(1280, 720);
+        GRoad app(1280, 720);
         app.Run(hInstance, nCmdShow);
     }
     catch (const DxError& e) {

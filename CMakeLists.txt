@@ -29,6 +29,10 @@ add_executable(rigidbody
 	TriangleScene.cpp
 	WhirligigScene.h
 	WhirligigScene.cpp
+    JellyScene.h
+    JellyScene.cpp
+    FogScene.h
+    FogScene.cpp
     ${IMGUI_SOURCES}
 )
 

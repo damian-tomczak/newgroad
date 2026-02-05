@@ -1,7 +1,6 @@
 #include "TriangleScene.h"
 
 void TriangleScene::Init(ID3D12Device* device) {
-    // Root signature (empty)
     D3D12_ROOT_SIGNATURE_DESC rs{};
     rs.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     ComPtr<ID3DBlob> sig, err;
@@ -10,8 +9,6 @@ void TriangleScene::Init(ID3D12Device* device) {
         err ? std::string((char*)err->GetBufferPointer(), err->GetBufferSize()) : "");
     HR(device->CreateRootSignature(0, sig->GetBufferPointer(), sig->GetBufferSize(),
         IID_PPV_ARGS(&rootSig)), "CreateRootSignature(Triangle)");
-
-    // Shaders
     const char* src = R"(
 struct VSIn { float3 pos:POSITION; float3 col:COLOR; };
 struct PSIn { float4 pos:SV_POSITION; float3 col:COLOR; };
@@ -25,14 +22,10 @@ float4 PSMain(PSIn i):SV_TARGET{ return float4(i.col,1); }
     HR(D3DCompile(src, (UINT)std::strlen(src), nullptr, nullptr, nullptr,
         "PSMain", "ps_5_0", 0, 0, &ps, &shErr),
         "D3DCompile(PS Triangle)", shErr ? std::string((char*)shErr->GetBufferPointer(), shErr->GetBufferSize()) : "");
-
-    // Input layout
     D3D12_INPUT_ELEMENT_DESC layout[] = {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,   D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12,  D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
     };
-
-    // PSO (depth disabled)
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
     psoDesc.pRootSignature = rootSig.Get();
     psoDesc.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
@@ -43,7 +36,6 @@ float4 PSMain(PSIn i):SV_TARGET{ return float4(i.col,1); }
     psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
     psoDesc.SampleDesc.Count = 1;
     psoDesc.SampleMask = UINT_MAX;
-    // Blend
     psoDesc.BlendState.AlphaToCoverageEnable = FALSE;
     psoDesc.BlendState.IndependentBlendEnable = FALSE;
     const D3D12_RENDER_TARGET_BLEND_DESC rt = {
@@ -53,18 +45,14 @@ float4 PSMain(PSIn i):SV_TARGET{ return float4(i.col,1); }
         D3D12_LOGIC_OP_NOOP, D3D12_COLOR_WRITE_ENABLE_ALL
     };
     for (int i = 0; i < 8; ++i) psoDesc.BlendState.RenderTarget[i] = rt;
-    // Rasterizer
     psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
     psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
     psoDesc.RasterizerState.DepthClipEnable = TRUE;
-    // Depth off
     psoDesc.DepthStencilState.DepthEnable = FALSE;
     psoDesc.DepthStencilState.StencilEnable = FALSE;
 
     HR(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso)),
         "CreateGraphicsPipelineState(Triangle)");
-
-    // Geometry
     struct V { float p[3]; float c[3]; };
     V verts[] = {
         {{  0.0f,  0.5f, 0.0f}, {1,0,0}},
