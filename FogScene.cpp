@@ -249,8 +249,8 @@ void FogScene::CreateDescriptors(ID3D12Resource* sceneColor, ID3D12Resource* dep
 
 void FogScene::OnResize(UINT inWidth, UINT inHeight)
 {
-    width = std::max(1u, inWidth);
-    height = std::max(1u, inHeight);
+    width = (std::max)(1u, inWidth);
+    height = (std::max)(1u, inHeight);
 }
 
 void FogScene::Draw(ID3D12GraphicsCommandList* commandList, UINT frameIndex)
