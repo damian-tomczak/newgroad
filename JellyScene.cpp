@@ -59,21 +59,21 @@ JellyScene::JellyScene()
     , bezierTessellation(16)
     , hasPreviousFrameTime(false)
     , simulationTimeAccumulator(0.0f)
-    , m_device(nullptr)
+    , device(nullptr)
 {
     ResetState();
 }
 
 void JellyScene::Init(ID3D12Device* device)
 {
-    m_device = device;
+    this->device = device;
 
     BuildRootSignature(device);
     BuildPSO(device);
     BuildGeometry(device);
 
-    m_cam.Reset(XM_PIDIV4, XM_PIDIV4 * 0.35f, 5.0f, { 0,0,0 });
-    m_cam.SetViewport(width, height);
+    cam.Reset(XM_PIDIV4, XM_PIDIV4 * 0.35f, 5.0f, { 0,0,0 });
+    cam.SetViewport(width, height);
 
     hasPreviousFrameTime = false;
     simulationTimeAccumulator = 0.0f;
@@ -83,40 +83,40 @@ void JellyScene::OnResize(UINT newWidth, UINT newHeight)
 {
     width = (newWidth == 0 ? 1u : newWidth);
     height = (newHeight == 0 ? 1u : newHeight);
-    m_cam.SetViewport(width, height);
+    cam.SetViewport(width, height);
 }
 
 void JellyScene::Cleanup()
 {
-    if (m_vbJelly && m_mapJellyVB) { m_vbJelly->Unmap(0, nullptr);   m_mapJellyVB = nullptr; }
-    if (m_vbCtrl && m_mapCtrlVB) { m_vbCtrl->Unmap(0, nullptr);    m_mapCtrlVB = nullptr; }
-    if (m_vbBound && m_mapBoundVB) { m_vbBound->Unmap(0, nullptr);   m_mapBoundVB = nullptr; }
-    if (m_vbBezier && m_mapBezierVB) { m_vbBezier->Unmap(0, nullptr);  m_mapBezierVB = nullptr; }
-    if (m_vbObj && m_mapObjVB) { m_vbObj->Unmap(0, nullptr); m_mapObjVB = nullptr; }
-    if (m_cb && m_mapCB) { m_cb->Unmap(0, nullptr);        m_mapCB = nullptr; }
+    if (vbJelly && mapJellyVB) { vbJelly->Unmap(0, nullptr);   mapJellyVB = nullptr; }
+    if (vbCtrl && mapCtrlVB) { vbCtrl->Unmap(0, nullptr);    mapCtrlVB = nullptr; }
+    if (vbBound && mapBoundVB) { vbBound->Unmap(0, nullptr);   mapBoundVB = nullptr; }
+    if (vbBezier && mapBezierVB) { vbBezier->Unmap(0, nullptr);  mapBezierVB = nullptr; }
+    if (vbObj && mapObjVB) { vbObj->Unmap(0, nullptr); mapObjVB = nullptr; }
+    if (cb && mapCB) { cb->Unmap(0, nullptr);        mapCB = nullptr; }
 
-    m_rootSig.Reset();
-    m_psoLines.Reset();
-    m_psoPoints.Reset();
-    m_psoSolid.Reset();
+    rootSig.Reset();
+    psoLines.Reset();
+    psoPoints.Reset();
+    psoSolid.Reset();
 
-    m_vbJelly.Reset();
-    m_ibJellyAxial.Reset();
-    m_ibJellyDiag.Reset();
+    vbJelly.Reset();
+    ibJellyAxial.Reset();
+    ibJellyDiag.Reset();
 
-    m_vbCtrl.Reset();
-    m_ibCtrl.Reset();
-    m_vbBound.Reset();
-    m_ibBound.Reset();
-    m_vbBezier.Reset();
-    m_ibBezier.Reset();
+    vbCtrl.Reset();
+    ibCtrl.Reset();
+    vbBound.Reset();
+    ibBound.Reset();
+    vbBezier.Reset();
+    ibBezier.Reset();
 
-    m_vbObj.Reset();
-    m_ibObj.Reset();
+    vbObj.Reset();
+    ibObj.Reset();
 
-    m_cb.Reset();
+    cb.Reset();
 
-    m_device = nullptr;
+    device = nullptr;
 }
 
 void JellyScene::ResetState()
@@ -177,21 +177,21 @@ void JellyScene::OnMouseMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         switch (msg)
         {
         case WM_LBUTTONDOWN:
-            m_cam.rotating = false;
-            m_cam.panning = false;
-            m_cam.lastMouse = { mouseX, mouseY };
+            cam.rotating = false;
+            cam.panning = false;
+            cam.lastMouse = { mouseX, mouseY };
             return;
 
         case WM_MOUSEMOVE:
         {
-            int deltaX = mouseX - m_cam.lastMouse.x;
-            int deltaY = mouseY - m_cam.lastMouse.y;
-            m_cam.lastMouse = { mouseX, mouseY };
+            int deltaX = mouseX - cam.lastMouse.x;
+            int deltaY = mouseY - cam.lastMouse.y;
+            cam.lastMouse = { mouseX, mouseY };
 
-            XMVECTOR cameraRight = m_cam.GetRight();
-            XMVECTOR cameraUp = m_cam.GetUp();
+            XMVECTOR cameraRight = cam.GetRight();
+            XMVECTOR cameraUp = cam.GetUp();
 
-            float panScale = 0.002f * m_cam.dist;
+            float panScale = 0.002f * cam.dist;
             XMVECTOR rightOffset = XMVectorScale(cameraRight, -deltaX * panScale);
             XMVECTOR upOffset = XMVectorScale(cameraUp, deltaY * panScale);
             XMVECTOR translation = XMVectorAdd(rightOffset, upOffset);
@@ -209,7 +209,7 @@ void JellyScene::OnMouseMessage(UINT msg, WPARAM wParam, LPARAM lParam)
         }
     }
 
-    m_cam.OnMouseMessage(msg, wParam, lParam);
+    cam.OnMouseMessage(msg, wParam, lParam);
 }
 
 void JellyScene::Render(ID3D12GraphicsCommandList* commandList)
@@ -239,68 +239,68 @@ void JellyScene::Render(ID3D12GraphicsCommandList* commandList)
     UpdateDynamicVBs();
     UpdateCB();
 
-    commandList->SetGraphicsRootSignature(m_rootSig.Get());
-    commandList->SetGraphicsRootConstantBufferView(0, m_cb->GetGPUVirtualAddress());
+    commandList->SetGraphicsRootSignature(rootSig.Get());
+    commandList->SetGraphicsRootConstantBufferView(0, cb->GetGPUVirtualAddress());
 
     if (showBezierSurface)
     {
-        commandList->SetPipelineState(m_psoSolid.Get());
+        commandList->SetPipelineState(psoSolid.Get());
         commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        commandList->IASetVertexBuffers(0, 1, &m_vbvBezier);
-        commandList->IASetIndexBuffer(&m_ibvBezier);
-        commandList->DrawIndexedInstanced((UINT)m_bezierIdx.size(), 1, 0, 0, 0);
+        commandList->IASetVertexBuffers(0, 1, &vbvBezier);
+        commandList->IASetIndexBuffer(&ibvBezier);
+        commandList->DrawIndexedInstanced((UINT)bezierIdx.size(), 1, 0, 0, 0);
     }
 
-    if (showDeformedObject && !m_objIdx.empty())
+    if (showDeformedObject && !objIdx.empty())
     {
-        commandList->SetPipelineState(m_psoSolid.Get());
+        commandList->SetPipelineState(psoSolid.Get());
         commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        commandList->IASetVertexBuffers(0, 1, &m_vbvObj);
-        commandList->IASetIndexBuffer(&m_ibvObj);
-        commandList->DrawIndexedInstanced((UINT)m_objIdx.size(), 1, 0, 0, 0);
+        commandList->IASetVertexBuffers(0, 1, &vbvObj);
+        commandList->IASetIndexBuffer(&ibvObj);
+        commandList->DrawIndexedInstanced((UINT)objIdx.size(), 1, 0, 0, 0);
     }
 
     if (showBoundingBox)
     {
-        commandList->SetPipelineState(m_psoLines.Get());
+        commandList->SetPipelineState(psoLines.Get());
         commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-        commandList->IASetVertexBuffers(0, 1, &m_vbvBound);
-        commandList->IASetIndexBuffer(&m_ibvBound);
-        commandList->DrawIndexedInstanced((UINT)m_boundIdx.size(), 1, 0, 0, 0);
+        commandList->IASetVertexBuffers(0, 1, &vbvBound);
+        commandList->IASetIndexBuffer(&ibvBound);
+        commandList->DrawIndexedInstanced((UINT)boundIdx.size(), 1, 0, 0, 0);
     }
 
     if (showControlCube)
     {
-        commandList->SetPipelineState(m_psoLines.Get());
+        commandList->SetPipelineState(psoLines.Get());
         commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-        commandList->IASetVertexBuffers(0, 1, &m_vbvCtrl);
-        commandList->IASetIndexBuffer(&m_ibvCtrl);
-        commandList->DrawIndexedInstanced((UINT)m_ctrlIdx.size(), 1, 0, 0, 0);
+        commandList->IASetVertexBuffers(0, 1, &vbvCtrl);
+        commandList->IASetIndexBuffer(&ibvCtrl);
+        commandList->DrawIndexedInstanced((UINT)ctrlIdx.size(), 1, 0, 0, 0);
     }
 
-    if (showAxialSprings && !m_jellyIdxAxial.empty())
+    if (showAxialSprings && !jellyIdxAxial.empty())
     {
-        commandList->SetPipelineState(m_psoLines.Get());
+        commandList->SetPipelineState(psoLines.Get());
         commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-        commandList->IASetVertexBuffers(0, 1, &m_vbvJelly);
-        commandList->IASetIndexBuffer(&m_ibvJellyAxial);
-        commandList->DrawIndexedInstanced((UINT)m_jellyIdxAxial.size(), 1, 0, 0, 0);
+        commandList->IASetVertexBuffers(0, 1, &vbvJelly);
+        commandList->IASetIndexBuffer(&ibvJellyAxial);
+        commandList->DrawIndexedInstanced((UINT)jellyIdxAxial.size(), 1, 0, 0, 0);
     }
 
-    if (showDiagonalSprings && !m_jellyIdxDiag.empty())
+    if (showDiagonalSprings && !jellyIdxDiag.empty())
     {
-        commandList->SetPipelineState(m_psoLines.Get());
+        commandList->SetPipelineState(psoLines.Get());
         commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-        commandList->IASetVertexBuffers(0, 1, &m_vbvJelly);
-        commandList->IASetIndexBuffer(&m_ibvJellyDiag);
-        commandList->DrawIndexedInstanced((UINT)m_jellyIdxDiag.size(), 1, 0, 0, 0);
+        commandList->IASetVertexBuffers(0, 1, &vbvJelly);
+        commandList->IASetIndexBuffer(&ibvJellyDiag);
+        commandList->DrawIndexedInstanced((UINT)jellyIdxDiag.size(), 1, 0, 0, 0);
     }
 
     if (showJellyPoints)
     {
-        commandList->SetPipelineState(m_psoPoints.Get());
+        commandList->SetPipelineState(psoPoints.Get());
         commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
-        commandList->IASetVertexBuffers(0, 1, &m_vbvJelly);
+        commandList->IASetVertexBuffers(0, 1, &vbvJelly);
         commandList->DrawInstanced((UINT)N3, 1, 0, 0);
     }
 }
@@ -334,7 +334,7 @@ void JellyScene::BuildRootSignature(ID3D12Device* device)
         0,
         serialized->GetBufferPointer(),
         serialized->GetBufferSize(),
-        IID_PPV_ARGS(&m_rootSig)),
+        IID_PPV_ARGS(&rootSig)),
         "CreateRootSignature(Jelly)");
 }
 
@@ -461,7 +461,7 @@ float4 main(PSIn input):SV_TARGET
         {
             D3D12_GRAPHICS_PIPELINE_STATE_DESC pso{};
             pso.InputLayout = { inputLayout, inputLayoutCount };
-            pso.pRootSignature = m_rootSig.Get();
+            pso.pRootSignature = rootSig.Get();
             pso.VS = { vertexShader->GetBufferPointer(), vertexShader->GetBufferSize() };
             pso.PS = { pixelShader->GetBufferPointer(), pixelShader->GetBufferSize() };
             pso.RasterizerState = rasterizer;
@@ -497,47 +497,47 @@ float4 main(PSIn input):SV_TARGET
 
     MakePSO(inputLayoutPositionColor, _countof(inputLayoutPositionColor),
         vsPCBlob.Get(), psPCBlob.Get(),
-        D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE, m_psoLines);
+        D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE, psoLines);
 
     MakePSO(inputLayoutPositionColor, _countof(inputLayoutPositionColor),
         vsPCBlob.Get(), psPCBlob.Get(),
-        D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT, m_psoPoints);
+        D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT, psoPoints);
 
     MakePSO(inputLayoutPositionNormal, _countof(inputLayoutPositionNormal),
         vsSolidBlob.Get(), psSolidBlob.Get(),
-        D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, m_psoSolid);
+        D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE, psoSolid);
 
     UINT cbSize = (UINT)((sizeof(CB) + 255) & ~255u);
-    CreateUploadBuffer(cbSize, (void**)&m_mapCB, m_cb, nullptr);
+    CreateUploadBuffer(cbSize, (void**)&mapCB, cb, nullptr);
 }
 
 void JellyScene::BuildGeometry(ID3D12Device* device)
 {
     for (int index = 0; index < N3; ++index)
     {
-        m_jellyVerts[index].p[0] = particlePositions[index].x;
-        m_jellyVerts[index].p[1] = particlePositions[index].y;
-        m_jellyVerts[index].p[2] = particlePositions[index].z;
+        jellyVerts[index].p[0] = particlePositions[index].x;
+        jellyVerts[index].p[1] = particlePositions[index].y;
+        jellyVerts[index].p[2] = particlePositions[index].z;
 
-        m_jellyVerts[index].c[0] = 0.0f;
-        m_jellyVerts[index].c[1] = 0.6f;
-        m_jellyVerts[index].c[2] = 1.0f;
+        jellyVerts[index].c[0] = 0.0f;
+        jellyVerts[index].c[1] = 0.6f;
+        jellyVerts[index].c[2] = 1.0f;
     }
 
     CreateUploadBuffer(
-        (UINT)sizeof(m_jellyVerts),
-        (void**)&m_mapJellyVB,
-        m_vbJelly,
-        m_jellyVerts.data());
+        (UINT)sizeof(jellyVerts),
+        (void**)&mapJellyVB,
+        vbJelly,
+        jellyVerts.data());
 
-    m_vbvJelly.BufferLocation = m_vbJelly->GetGPUVirtualAddress();
-    m_vbvJelly.SizeInBytes = (UINT)sizeof(m_jellyVerts);
-    m_vbvJelly.StrideInBytes = (UINT)sizeof(VertexPC);
+    vbvJelly.BufferLocation = vbJelly->GetGPUVirtualAddress();
+    vbvJelly.SizeInBytes = (UINT)sizeof(jellyVerts);
+    vbvJelly.StrideInBytes = (UINT)sizeof(VertexPC);
 
-    m_jellyIdxAxial.clear();
-    m_jellyIdxDiag.clear();
-    m_jellyIdxAxial.reserve(N3 * 3 * 2);
-    m_jellyIdxDiag.reserve(N3 * 6 * 2);
+    jellyIdxAxial.clear();
+    jellyIdxDiag.clear();
+    jellyIdxAxial.reserve(N3 * 3 * 2);
+    jellyIdxDiag.reserve(N3 * 6 * 2);
 
     for (int xIndex = 0; xIndex < N; ++xIndex)
     {
@@ -550,162 +550,162 @@ void JellyScene::BuildGeometry(ID3D12Device* device)
                 if (xIndex < N - 1)
                 {
                     int neighborIndex = Index(xIndex + 1, yIndex, zIndex);
-                    m_jellyIdxAxial.push_back(currentIndex);
-                    m_jellyIdxAxial.push_back(neighborIndex);
+                    jellyIdxAxial.push_back(currentIndex);
+                    jellyIdxAxial.push_back(neighborIndex);
                 }
                 if (yIndex < N - 1)
                 {
                     int neighborIndex = Index(xIndex, yIndex + 1, zIndex);
-                    m_jellyIdxAxial.push_back(currentIndex);
-                    m_jellyIdxAxial.push_back(neighborIndex);
+                    jellyIdxAxial.push_back(currentIndex);
+                    jellyIdxAxial.push_back(neighborIndex);
                 }
                 if (zIndex < N - 1)
                 {
                     int neighborIndex = Index(xIndex, yIndex, zIndex + 1);
-                    m_jellyIdxAxial.push_back(currentIndex);
-                    m_jellyIdxAxial.push_back(neighborIndex);
+                    jellyIdxAxial.push_back(currentIndex);
+                    jellyIdxAxial.push_back(neighborIndex);
                 }
 
                 if (xIndex < N - 1 && yIndex < N - 1)
                 {
                     int neighborIndex = Index(xIndex + 1, yIndex + 1, zIndex);
-                    m_jellyIdxDiag.push_back(currentIndex);
-                    m_jellyIdxDiag.push_back(neighborIndex);
+                    jellyIdxDiag.push_back(currentIndex);
+                    jellyIdxDiag.push_back(neighborIndex);
                 }
                 if (xIndex < N - 1 && yIndex > 0)
                 {
                     int neighborIndex = Index(xIndex + 1, yIndex - 1, zIndex);
-                    m_jellyIdxDiag.push_back(currentIndex);
-                    m_jellyIdxDiag.push_back(neighborIndex);
+                    jellyIdxDiag.push_back(currentIndex);
+                    jellyIdxDiag.push_back(neighborIndex);
                 }
 
                 if (xIndex < N - 1 && zIndex < N - 1)
                 {
                     int neighborIndex = Index(xIndex + 1, yIndex, zIndex + 1);
-                    m_jellyIdxDiag.push_back(currentIndex);
-                    m_jellyIdxDiag.push_back(neighborIndex);
+                    jellyIdxDiag.push_back(currentIndex);
+                    jellyIdxDiag.push_back(neighborIndex);
                 }
                 if (xIndex < N - 1 && zIndex > 0)
                 {
                     int neighborIndex = Index(xIndex + 1, yIndex, zIndex - 1);
-                    m_jellyIdxDiag.push_back(currentIndex);
-                    m_jellyIdxDiag.push_back(neighborIndex);
+                    jellyIdxDiag.push_back(currentIndex);
+                    jellyIdxDiag.push_back(neighborIndex);
                 }
 
                 if (yIndex < N - 1 && zIndex < N - 1)
                 {
                     int neighborIndex = Index(xIndex, yIndex + 1, zIndex + 1);
-                    m_jellyIdxDiag.push_back(currentIndex);
-                    m_jellyIdxDiag.push_back(neighborIndex);
+                    jellyIdxDiag.push_back(currentIndex);
+                    jellyIdxDiag.push_back(neighborIndex);
                 }
                 if (yIndex < N - 1 && zIndex > 0)
                 {
                     int neighborIndex = Index(xIndex, yIndex + 1, zIndex - 1);
-                    m_jellyIdxDiag.push_back(currentIndex);
-                    m_jellyIdxDiag.push_back(neighborIndex);
+                    jellyIdxDiag.push_back(currentIndex);
+                    jellyIdxDiag.push_back(neighborIndex);
                 }
             }
         }
     }
 
     CreateUploadBuffer(
-        (UINT)(m_jellyIdxAxial.size() * sizeof(uint32_t)),
+        (UINT)(jellyIdxAxial.size() * sizeof(uint32_t)),
         nullptr,
-        m_ibJellyAxial,
-        m_jellyIdxAxial.data());
+        ibJellyAxial,
+        jellyIdxAxial.data());
 
-    m_ibvJellyAxial.BufferLocation = m_ibJellyAxial->GetGPUVirtualAddress();
-    m_ibvJellyAxial.SizeInBytes = (UINT)(m_jellyIdxAxial.size() * sizeof(uint32_t));
-    m_ibvJellyAxial.Format = DXGI_FORMAT_R32_UINT;
+    ibvJellyAxial.BufferLocation = ibJellyAxial->GetGPUVirtualAddress();
+    ibvJellyAxial.SizeInBytes = (UINT)(jellyIdxAxial.size() * sizeof(uint32_t));
+    ibvJellyAxial.Format = DXGI_FORMAT_R32_UINT;
 
     CreateUploadBuffer(
-        (UINT)(m_jellyIdxDiag.size() * sizeof(uint32_t)),
+        (UINT)(jellyIdxDiag.size() * sizeof(uint32_t)),
         nullptr,
-        m_ibJellyDiag,
-        m_jellyIdxDiag.data());
+        ibJellyDiag,
+        jellyIdxDiag.data());
 
-    m_ibvJellyDiag.BufferLocation = m_ibJellyDiag->GetGPUVirtualAddress();
-    m_ibvJellyDiag.SizeInBytes = (UINT)(m_jellyIdxDiag.size() * sizeof(uint32_t));
-    m_ibvJellyDiag.Format = DXGI_FORMAT_R32_UINT;
+    ibvJellyDiag.BufferLocation = ibJellyDiag->GetGPUVirtualAddress();
+    ibvJellyDiag.SizeInBytes = (UINT)(jellyIdxDiag.size() * sizeof(uint32_t));
+    ibvJellyDiag.Format = DXGI_FORMAT_R32_UINT;
 
-    m_ctrlIdx = {
+    ctrlIdx = {
         0,1, 1,3, 3,2, 2,0,
         4,5, 5,7, 7,6, 6,4,
         0,4, 1,5, 2,6, 3,7
     };
-    m_boundIdx = m_ctrlIdx;
+    boundIdx = ctrlIdx;
 
     Float3 controlCornersWorld[8];
     ControlCorners(controlCornersWorld);
     for (int i = 0; i < 8; ++i)
     {
-        m_ctrlVerts[i].p[0] = controlCornersWorld[i].x;
-        m_ctrlVerts[i].p[1] = controlCornersWorld[i].y;
-        m_ctrlVerts[i].p[2] = controlCornersWorld[i].z;
+        ctrlVerts[i].p[0] = controlCornersWorld[i].x;
+        ctrlVerts[i].p[1] = controlCornersWorld[i].y;
+        ctrlVerts[i].p[2] = controlCornersWorld[i].z;
 
-        m_ctrlVerts[i].c[0] = 1.0f;
-        m_ctrlVerts[i].c[1] = 0.6f;
-        m_ctrlVerts[i].c[2] = 0.1f;
+        ctrlVerts[i].c[0] = 1.0f;
+        ctrlVerts[i].c[1] = 0.6f;
+        ctrlVerts[i].c[2] = 0.1f;
     }
 
     CreateUploadBuffer(
-        (UINT)sizeof(m_ctrlVerts),
-        (void**)&m_mapCtrlVB,
-        m_vbCtrl,
-        m_ctrlVerts.data());
+        (UINT)sizeof(ctrlVerts),
+        (void**)&mapCtrlVB,
+        vbCtrl,
+        ctrlVerts.data());
 
-    m_vbvCtrl.BufferLocation = m_vbCtrl->GetGPUVirtualAddress();
-    m_vbvCtrl.SizeInBytes = (UINT)sizeof(m_ctrlVerts);
-    m_vbvCtrl.StrideInBytes = (UINT)sizeof(VertexPC);
+    vbvCtrl.BufferLocation = vbCtrl->GetGPUVirtualAddress();
+    vbvCtrl.SizeInBytes = (UINT)sizeof(ctrlVerts);
+    vbvCtrl.StrideInBytes = (UINT)sizeof(VertexPC);
 
     CreateUploadBuffer(
-        (UINT)(m_ctrlIdx.size() * sizeof(uint32_t)),
+        (UINT)(ctrlIdx.size() * sizeof(uint32_t)),
         nullptr,
-        m_ibCtrl,
-        m_ctrlIdx.data());
+        ibCtrl,
+        ctrlIdx.data());
 
-    m_ibvCtrl.BufferLocation = m_ibCtrl->GetGPUVirtualAddress();
-    m_ibvCtrl.SizeInBytes = (UINT)(m_ctrlIdx.size() * sizeof(uint32_t));
-    m_ibvCtrl.Format = DXGI_FORMAT_R32_UINT;
-
-    CreateUploadBuffer(
-        (UINT)sizeof(m_boundVerts),
-        (void**)&m_mapBoundVB,
-        m_vbBound,
-        m_boundVerts.data());
-
-    m_vbvBound.BufferLocation = m_vbBound->GetGPUVirtualAddress();
-    m_vbvBound.SizeInBytes = (UINT)sizeof(m_boundVerts);
-    m_vbvBound.StrideInBytes = (UINT)sizeof(VertexPC);
+    ibvCtrl.BufferLocation = ibCtrl->GetGPUVirtualAddress();
+    ibvCtrl.SizeInBytes = (UINT)(ctrlIdx.size() * sizeof(uint32_t));
+    ibvCtrl.Format = DXGI_FORMAT_R32_UINT;
 
     CreateUploadBuffer(
-        (UINT)(m_boundIdx.size() * sizeof(uint32_t)),
+        (UINT)sizeof(boundVerts),
+        (void**)&mapBoundVB,
+        vbBound,
+        boundVerts.data());
+
+    vbvBound.BufferLocation = vbBound->GetGPUVirtualAddress();
+    vbvBound.SizeInBytes = (UINT)sizeof(boundVerts);
+    vbvBound.StrideInBytes = (UINT)sizeof(VertexPC);
+
+    CreateUploadBuffer(
+        (UINT)(boundIdx.size() * sizeof(uint32_t)),
         nullptr,
-        m_ibBound,
-        m_boundIdx.data());
+        ibBound,
+        boundIdx.data());
 
-    m_ibvBound.BufferLocation = m_ibBound->GetGPUVirtualAddress();
-    m_ibvBound.SizeInBytes = (UINT)(m_boundIdx.size() * sizeof(uint32_t));
-    m_ibvBound.Format = DXGI_FORMAT_R32_UINT;
+    ibvBound.BufferLocation = ibBound->GetGPUVirtualAddress();
+    ibvBound.SizeInBytes = (UINT)(boundIdx.size() * sizeof(uint32_t));
+    ibvBound.Format = DXGI_FORMAT_R32_UINT;
 
     BuildBezierIndexBuffer();
-    m_bezierVtxCount = 6u * (UINT)(bezierTessellation + 1) * (UINT)(bezierTessellation + 1);
-    UINT vertexBufferBytes = m_bezierVtxCount * (UINT)sizeof(VertexPN);
+    bezierVtxCount = 6u * (UINT)(bezierTessellation + 1) * (UINT)(bezierTessellation + 1);
+    UINT vertexBufferBytes = bezierVtxCount * (UINT)sizeof(VertexPN);
 
-    CreateUploadBuffer(vertexBufferBytes, (void**)&m_mapBezierVB, m_vbBezier, nullptr);
-    m_vbvBezier.BufferLocation = m_vbBezier->GetGPUVirtualAddress();
-    m_vbvBezier.SizeInBytes = vertexBufferBytes;
-    m_vbvBezier.StrideInBytes = (UINT)sizeof(VertexPN);
+    CreateUploadBuffer(vertexBufferBytes, (void**)&mapBezierVB, vbBezier, nullptr);
+    vbvBezier.BufferLocation = vbBezier->GetGPUVirtualAddress();
+    vbvBezier.SizeInBytes = vertexBufferBytes;
+    vbvBezier.StrideInBytes = (UINT)sizeof(VertexPN);
 
     CreateUploadBuffer(
-        (UINT)(m_bezierIdx.size() * sizeof(uint32_t)),
+        (UINT)(bezierIdx.size() * sizeof(uint32_t)),
         nullptr,
-        m_ibBezier,
-        m_bezierIdx.data());
+        ibBezier,
+        bezierIdx.data());
 
-    m_ibvBezier.BufferLocation = m_ibBezier->GetGPUVirtualAddress();
-    m_ibvBezier.SizeInBytes = (UINT)(m_bezierIdx.size() * sizeof(uint32_t));
-    m_ibvBezier.Format = DXGI_FORMAT_R32_UINT;
+    ibvBezier.BufferLocation = ibBezier->GetGPUVirtualAddress();
+    ibvBezier.SizeInBytes = (UINT)(bezierIdx.size() * sizeof(uint32_t));
+    ibvBezier.Format = DXGI_FORMAT_R32_UINT;
 
     BuildDeformedObjectMesh();
 }
@@ -728,7 +728,7 @@ void JellyScene::CreateUploadBuffer(
     desc.SampleDesc.Count = 1;
     desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-    HR(m_device->CreateCommittedResource(
+    HR(device->CreateCommittedResource(
         &heap,
         D3D12_HEAP_FLAG_NONE,
         &desc,
@@ -763,21 +763,21 @@ void JellyScene::UpdateDynamicVBs()
 {
     for (int index = 0; index < N3; ++index)
     {
-        m_jellyVerts[index].p[0] = particlePositions[index].x;
-        m_jellyVerts[index].p[1] = particlePositions[index].y;
-        m_jellyVerts[index].p[2] = particlePositions[index].z;
+        jellyVerts[index].p[0] = particlePositions[index].x;
+        jellyVerts[index].p[1] = particlePositions[index].y;
+        jellyVerts[index].p[2] = particlePositions[index].z;
     }
-    std::memcpy(m_mapJellyVB, m_jellyVerts.data(), sizeof(m_jellyVerts));
+    std::memcpy(mapJellyVB, jellyVerts.data(), sizeof(jellyVerts));
 
     Float3 controlCornersWorld[8];
     ControlCorners(controlCornersWorld);
     for (int i = 0; i < 8; ++i)
     {
-        m_ctrlVerts[i].p[0] = controlCornersWorld[i].x;
-        m_ctrlVerts[i].p[1] = controlCornersWorld[i].y;
-        m_ctrlVerts[i].p[2] = controlCornersWorld[i].z;
+        ctrlVerts[i].p[0] = controlCornersWorld[i].x;
+        ctrlVerts[i].p[1] = controlCornersWorld[i].y;
+        ctrlVerts[i].p[2] = controlCornersWorld[i].z;
     }
-    std::memcpy(m_mapCtrlVB, m_ctrlVerts.data(), sizeof(m_ctrlVerts));
+    std::memcpy(mapCtrlVB, ctrlVerts.data(), sizeof(ctrlVerts));
 
     float halfExtentX = boundingBoxHalfExtent.x;
     float halfExtentY = boundingBoxHalfExtent.y;
@@ -797,14 +797,14 @@ void JellyScene::UpdateDynamicVBs()
 
     for (int i = 0; i < 8; ++i)
     {
-        m_boundVerts[i].p[0] = boundingCorners[i].x;
-        m_boundVerts[i].p[1] = boundingCorners[i].y;
-        m_boundVerts[i].p[2] = boundingCorners[i].z;
-        m_boundVerts[i].c[0] = 0.7f;
-        m_boundVerts[i].c[1] = 0.7f;
-        m_boundVerts[i].c[2] = 0.7f;
+        boundVerts[i].p[0] = boundingCorners[i].x;
+        boundVerts[i].p[1] = boundingCorners[i].y;
+        boundVerts[i].p[2] = boundingCorners[i].z;
+        boundVerts[i].c[0] = 0.7f;
+        boundVerts[i].c[1] = 0.7f;
+        boundVerts[i].c[2] = 0.7f;
     }
-    std::memcpy(m_mapBoundVB, m_boundVerts.data(), sizeof(m_boundVerts));
+    std::memcpy(mapBoundVB, boundVerts.data(), sizeof(boundVerts));
 
     UpdateBezierSurfaceVB();
     UpdateDeformedObjectVB();
@@ -813,14 +813,14 @@ void JellyScene::UpdateDynamicVBs()
 void JellyScene::UpdateCB()
 {
     XMMATRIX world = XMMatrixIdentity();
-    XMMATRIX view = m_cam.ViewRH();
-    XMMATRIX proj = m_cam.ProjRH();
+    XMMATRIX view = cam.ViewRH();
+    XMMATRIX proj = cam.ProjRH();
 
     CB cb{};
     XMStoreFloat4x4(&cb.mvp, XMMatrixTranspose(world * view * proj));
 
-    XMVECTOR eye = m_cam.GetEye();
-    XMVECTOR at = m_cam.GetAt();
+    XMVECTOR eye = cam.GetEye();
+    XMVECTOR at = cam.GetAt();
     XMVECTOR forward = XMVector3Normalize(XMVectorSubtract(at, eye));
 
     XMFLOAT3 forwardFloat{};
@@ -831,7 +831,7 @@ void JellyScene::UpdateCB()
     cb.baseColor = { 0.20f, 0.70f, 1.00f };
     cb.ambient = 0.25f;
 
-    std::memcpy(m_mapCB, &cb, sizeof(cb));
+    std::memcpy(mapCB, &cb, sizeof(cb));
 }
 
 int JellyScene::Index(int xIndex, int yIndex, int zIndex) const
@@ -1215,7 +1215,7 @@ JellyScene::Float3 JellyScene::EvalPatch(
 
 void JellyScene::BuildBezierIndexBuffer()
 {
-    m_bezierIdx.clear();
+    bezierIdx.clear();
 
     const int tessellation = std::max(1, bezierTessellation);
     uint32_t stride = (uint32_t)(tessellation + 1);
@@ -1233,13 +1233,13 @@ void JellyScene::BuildBezierIndexBuffer()
                 uint32_t v2 = v0 + stride;
                 uint32_t v3 = v2 + 1;
 
-                m_bezierIdx.push_back(v0);
-                m_bezierIdx.push_back(v2);
-                m_bezierIdx.push_back(v1);
+                bezierIdx.push_back(v0);
+                bezierIdx.push_back(v2);
+                bezierIdx.push_back(v1);
 
-                m_bezierIdx.push_back(v1);
-                m_bezierIdx.push_back(v2);
-                m_bezierIdx.push_back(v3);
+                bezierIdx.push_back(v1);
+                bezierIdx.push_back(v2);
+                bezierIdx.push_back(v3);
             }
         }
     }
@@ -1247,7 +1247,7 @@ void JellyScene::BuildBezierIndexBuffer()
 
 void JellyScene::UpdateBezierSurfaceVB()
 {
-    if (!m_mapBezierVB) return;
+    if (!mapBezierVB) return;
 
     const int tessellation = std::max(1, bezierTessellation);
     const float invT = 1.0f / (float)tessellation;
@@ -1283,7 +1283,7 @@ void JellyScene::UpdateBezierSurfaceVB()
                 vertex.n[1] = normal.y;
                 vertex.n[2] = normal.z;
 
-                m_mapBezierVB[base + (uint32_t)yIndex * stride + (uint32_t)xIndex] = vertex;
+                mapBezierVB[base + (uint32_t)yIndex * stride + (uint32_t)xIndex] = vertex;
             }
         }
     }
@@ -1321,8 +1321,8 @@ void JellyScene::BuildDeformedObjectMesh()
     const float radius = 0.35f;
     const Float3 center = F3(0.5f, 0.5f, 0.5f);
 
-    m_objParam.clear();
-    m_objIdx.clear();
+    objParam.clear();
+    objIdx.clear();
 
     for (int i = 0; i <= stacks; ++i)
     {
@@ -1349,7 +1349,7 @@ void JellyScene::BuildDeformedObjectMesh()
             Q.y = std::clamp(Q.y, 0.0f, 1.0f);
             Q.z = std::clamp(Q.z, 0.0f, 1.0f);
 
-            m_objParam.push_back(Q);
+            objParam.push_back(Q);
         }
     }
 
@@ -1365,43 +1365,43 @@ void JellyScene::BuildDeformedObjectMesh()
             uint32_t d = c + 1;
 
             // zamiast (a,c,b) i (b,c,d)
-            m_objIdx.push_back(a);
-            m_objIdx.push_back(b);
-            m_objIdx.push_back(c);
+            objIdx.push_back(a);
+            objIdx.push_back(b);
+            objIdx.push_back(c);
 
-            m_objIdx.push_back(b);
-            m_objIdx.push_back(d);
-            m_objIdx.push_back(c);
+            objIdx.push_back(b);
+            objIdx.push_back(d);
+            objIdx.push_back(c);
         }
     }
 
-    m_objVtxCount = (uint32_t)m_objParam.size();
-    UINT vbBytes = m_objVtxCount * (UINT)sizeof(VertexPN);
+    objVtxCount = (uint32_t)objParam.size();
+    UINT vbBytes = objVtxCount * (UINT)sizeof(VertexPN);
 
-    CreateUploadBuffer(vbBytes, (void**)&m_mapObjVB, m_vbObj, nullptr);
+    CreateUploadBuffer(vbBytes, (void**)&mapObjVB, vbObj, nullptr);
 
-    m_vbvObj.BufferLocation = m_vbObj->GetGPUVirtualAddress();
-    m_vbvObj.SizeInBytes = vbBytes;
-    m_vbvObj.StrideInBytes = (UINT)sizeof(VertexPN);
+    vbvObj.BufferLocation = vbObj->GetGPUVirtualAddress();
+    vbvObj.SizeInBytes = vbBytes;
+    vbvObj.StrideInBytes = (UINT)sizeof(VertexPN);
 
-    CreateUploadBuffer((UINT)(m_objIdx.size() * sizeof(uint32_t)), nullptr, m_ibObj, m_objIdx.data());
-    m_ibvObj.BufferLocation = m_ibObj->GetGPUVirtualAddress();
-    m_ibvObj.SizeInBytes = (UINT)(m_objIdx.size() * sizeof(uint32_t));
-    m_ibvObj.Format = DXGI_FORMAT_R32_UINT;
+    CreateUploadBuffer((UINT)(objIdx.size() * sizeof(uint32_t)), nullptr, ibObj, objIdx.data());
+    ibvObj.BufferLocation = ibObj->GetGPUVirtualAddress();
+    ibvObj.SizeInBytes = (UINT)(objIdx.size() * sizeof(uint32_t));
+    ibvObj.Format = DXGI_FORMAT_R32_UINT;
 
     UpdateDeformedObjectVB();
 }
 
 void JellyScene::UpdateDeformedObjectVB()
 {
-    if (!m_mapObjVB || m_objParam.empty() || m_objIdx.empty())
+    if (!mapObjVB || objParam.empty() || objIdx.empty())
         return;
 
     const int slices = OBJ_SLICES;
     const int stacks = OBJ_STACKS;
     const uint32_t stride = (uint32_t)(slices + 1);
 
-    const size_t vCount = m_objParam.size();
+    const size_t vCount = objParam.size();
 
     std::vector<Float3> pos(vCount);
     std::vector<Float3> nrm(vCount, F3(0, 0, 0));
@@ -1409,16 +1409,16 @@ void JellyScene::UpdateDeformedObjectVB()
     // 1) deformacja: P = F(Q)
     for (size_t i = 0; i < vCount; ++i)
     {
-        const Float3& Q = m_objParam[i];
+        const Float3& Q = objParam[i];
         pos[i] = EvalVolume(Q.x, Q.y, Q.z);
     }
 
     // 2) normalne: suma normalnych trójkątów
-    for (size_t t = 0; t + 2 < m_objIdx.size(); t += 3)
+    for (size_t t = 0; t + 2 < objIdx.size(); t += 3)
     {
-        uint32_t i0 = m_objIdx[t + 0];
-        uint32_t i1 = m_objIdx[t + 1];
-        uint32_t i2 = m_objIdx[t + 2];
+        uint32_t i0 = objIdx[t + 0];
+        uint32_t i1 = objIdx[t + 1];
+        uint32_t i2 = objIdx[t + 2];
 
         const Float3& p0 = pos[i0];
         const Float3& p1 = pos[i1];
@@ -1469,7 +1469,7 @@ void JellyScene::UpdateDeformedObjectVB()
         v.p[0] = pos[i].x; v.p[1] = pos[i].y; v.p[2] = pos[i].z;
         v.n[0] = normal.x; v.n[1] = normal.y; v.n[2] = normal.z;
 
-        m_mapObjVB[i] = v;
+        mapObjVB[i] = v;
     }
 }
 
