@@ -973,14 +973,14 @@ void GRoad::DrawUI()
 }
 
 void GRoad::MoveToNextFrame() {
-    const UINT64 fence = fenceValues[frameIndex];
-    HR(commandQueue->Signal(fence.Get(), fence), "Queue->Signal");
+    const UINT64 currentFenceValue = fenceValues[frameIndex];
+    HR(commandQueue->Signal(fence.Get(), currentFenceValue), "Queue->Signal");
     frameIndex = swapChain->GetCurrentBackBufferIndex();
     if (fence->GetCompletedValue() < fenceValues[frameIndex]) {
         HR(fence->SetEventOnCompletion(fenceValues[frameIndex], fenceEvent), "Fence->SetEventOnCompletion");
         WaitForSingleObject(fenceEvent, INFINITE);
     }
-    fenceValues[frameIndex] = fence + 1;
+    fenceValues[frameIndex] = currentFenceValue + 1;
 }
 
 void GRoad::WaitForGPU() {
