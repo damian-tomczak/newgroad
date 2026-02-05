@@ -415,7 +415,7 @@ void GRoad::RenderFrame() {
     commandList->SetDescriptorHeaps(1, heaps);
 
     // Fog postprocess into backbuffer
-    fogScene.Draw(commandList.Get(), frameIndex, sceneKind == SceneKind::Fog);
+    fogScene.Draw(commandList.Get(), frameIndex);
 
     // ImGui on top
     ImGui_ImplDX12_NewFrame();

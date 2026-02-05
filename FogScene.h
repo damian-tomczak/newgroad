@@ -19,7 +19,7 @@ public:
 
     void CreateDescriptors(ID3D12Resource* sceneColor, ID3D12Resource* depth);
     void OnResize(UINT width, UINT height);
-    void Draw(ID3D12GraphicsCommandList* commandList, UINT frameIndex, bool applyFog);
+    void Draw(ID3D12GraphicsCommandList* commandList, UINT frameIndex);
     void DrawUI();
     void Cleanup();
 
