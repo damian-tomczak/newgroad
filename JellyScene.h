@@ -21,7 +21,7 @@ struct JellyScene : public IScene
     JellyScene();
     ~JellyScene() override = default;
 
-    void Init(ID3D12Device* device) override;
+    void Init(ID3D12Device* gfxDevice) override;
     void Render(ID3D12GraphicsCommandList* cl) override;
     void OnResize(UINT w, UINT h) override;
     void Cleanup() override;
@@ -105,7 +105,7 @@ private:
     std::array<Float3, N3> particlePositions;
     std::array<Float3, N3> particleVelocities;
 
-    OrbitCamera m_cam;
+    OrbitCamera cam;
     UINT        width = 1280;
     UINT        height = 720;
 
@@ -113,72 +113,72 @@ private:
     float simulationTimeAccumulator;
     std::chrono::steady_clock::time_point lastTime;
 
-    ID3D12Device* m_device;
+    ID3D12Device* device;
 
-    ComPtr<ID3D12RootSignature> m_rootSig;
-    ComPtr<ID3D12PipelineState> m_psoLines;
-    ComPtr<ID3D12PipelineState> m_psoPoints;
-    ComPtr<ID3D12PipelineState> m_psoSolid;
+    ComPtr<ID3D12RootSignature> rootSig;
+    ComPtr<ID3D12PipelineState> psoLines;
+    ComPtr<ID3D12PipelineState> psoPoints;
+    ComPtr<ID3D12PipelineState> psoSolid;
 
-    ComPtr<ID3D12Resource> m_cb;
-    CB* m_mapCB = nullptr;
+    ComPtr<ID3D12Resource> cb;
+    CB* mapCB = nullptr;
 
-    ComPtr<ID3D12Resource> m_vbJelly;
-    D3D12_VERTEX_BUFFER_VIEW m_vbvJelly{};
-    std::array<VertexPC, N3> m_jellyVerts{};
-    VertexPC* m_mapJellyVB = nullptr;
+    ComPtr<ID3D12Resource> vbJelly;
+    D3D12_VERTEX_BUFFER_VIEW vbvJelly{};
+    std::array<VertexPC, N3> jellyVerts{};
+    VertexPC* mapJellyVB = nullptr;
 
-    std::vector<uint32_t> m_jellyIdxAxial;
-    std::vector<uint32_t> m_jellyIdxDiag;
+    std::vector<uint32_t> jellyIdxAxial;
+    std::vector<uint32_t> jellyIdxDiag;
 
-    ComPtr<ID3D12Resource> m_ibJellyAxial;
-    ComPtr<ID3D12Resource> m_ibJellyDiag;
-    D3D12_INDEX_BUFFER_VIEW m_ibvJellyAxial{};
-    D3D12_INDEX_BUFFER_VIEW m_ibvJellyDiag{};
+    ComPtr<ID3D12Resource> ibJellyAxial;
+    ComPtr<ID3D12Resource> ibJellyDiag;
+    D3D12_INDEX_BUFFER_VIEW ibvJellyAxial{};
+    D3D12_INDEX_BUFFER_VIEW ibvJellyDiag{};
 
-    ComPtr<ID3D12Resource> m_vbCtrl;
-    ComPtr<ID3D12Resource> m_ibCtrl;
-    D3D12_VERTEX_BUFFER_VIEW m_vbvCtrl{};
-    D3D12_INDEX_BUFFER_VIEW  m_ibvCtrl{};
-    std::array<VertexPC, 8>  m_ctrlVerts{};
-    VertexPC* m_mapCtrlVB = nullptr;
-    std::vector<uint32_t>    m_ctrlIdx;
+    ComPtr<ID3D12Resource> vbCtrl;
+    ComPtr<ID3D12Resource> ibCtrl;
+    D3D12_VERTEX_BUFFER_VIEW vbvCtrl{};
+    D3D12_INDEX_BUFFER_VIEW  ibvCtrl{};
+    std::array<VertexPC, 8>  ctrlVerts{};
+    VertexPC* mapCtrlVB = nullptr;
+    std::vector<uint32_t>    ctrlIdx;
 
-    ComPtr<ID3D12Resource> m_vbBound;
-    ComPtr<ID3D12Resource> m_ibBound;
-    D3D12_VERTEX_BUFFER_VIEW m_vbvBound{};
-    D3D12_INDEX_BUFFER_VIEW  m_ibvBound{};
-    std::array<VertexPC, 8>  m_boundVerts{};
-    VertexPC* m_mapBoundVB = nullptr;
-    std::vector<uint32_t>    m_boundIdx;
+    ComPtr<ID3D12Resource> vbBound;
+    ComPtr<ID3D12Resource> ibBound;
+    D3D12_VERTEX_BUFFER_VIEW vbvBound{};
+    D3D12_INDEX_BUFFER_VIEW  ibvBound{};
+    std::array<VertexPC, 8>  boundVerts{};
+    VertexPC* mapBoundVB = nullptr;
+    std::vector<uint32_t>    boundIdx;
 
     int                      bezierTessellation;
-    ComPtr<ID3D12Resource>   m_vbBezier;
-    ComPtr<ID3D12Resource>   m_ibBezier;
-    D3D12_VERTEX_BUFFER_VIEW m_vbvBezier{};
-    D3D12_INDEX_BUFFER_VIEW  m_ibvBezier{};
-    UINT                     m_bezierVtxCount = 0;
-    VertexPN* m_mapBezierVB = nullptr;
-    std::vector<uint32_t>    m_bezierIdx;
+    ComPtr<ID3D12Resource>   vbBezier;
+    ComPtr<ID3D12Resource>   ibBezier;
+    D3D12_VERTEX_BUFFER_VIEW vbvBezier{};
+    D3D12_INDEX_BUFFER_VIEW  ibvBezier{};
+    UINT                     bezierVtxCount = 0;
+    VertexPN* mapBezierVB = nullptr;
+    std::vector<uint32_t>    bezierIdx;
 
     // =========================================================
     // Deformowany obiekt (siatka trójkątów) w C=[0,1]^3
     // =========================================================
-    std::vector<Float3>   m_objParam;   // (u,v,w) w [0,1]^3
-    std::vector<uint32_t> m_objIdx;     // indeksy trójkątów
+    std::vector<Float3>   objParam;   // (u,v,w) w [0,1]^3
+    std::vector<uint32_t> objIdx;     // indeksy trójkątów
 
-    ComPtr<ID3D12Resource> m_vbObj;
-    ComPtr<ID3D12Resource> m_ibObj;
-    VertexPN* m_mapObjVB = nullptr;
+    ComPtr<ID3D12Resource> vbObj;
+    ComPtr<ID3D12Resource> ibObj;
+    VertexPN* mapObjVB = nullptr;
 
-    D3D12_VERTEX_BUFFER_VIEW m_vbvObj{};
-    D3D12_INDEX_BUFFER_VIEW  m_ibvObj{};
-    uint32_t m_objVtxCount = 0;
+    D3D12_VERTEX_BUFFER_VIEW vbvObj{};
+    D3D12_INDEX_BUFFER_VIEW  ibvObj{};
+    uint32_t objVtxCount = 0;
 
 private:
-    void BuildRootSignature(ID3D12Device* device);
-    void BuildPSO(ID3D12Device* device);
-    void BuildGeometry(ID3D12Device* device);
+    void BuildRootSignature(ID3D12Device* gfxDevice);
+    void BuildPSO(ID3D12Device* gfxDevice);
+    void BuildGeometry(ID3D12Device* gfxDevice);
     void CreateUploadBuffer(UINT byteSize,
         void** mappedPtr,
         ComPtr<ID3D12Resource>& res,
