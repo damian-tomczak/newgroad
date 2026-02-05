@@ -710,7 +710,9 @@ void GRoad::DrawUI()
 
         ImGui::Separator();
     }
-    fogScene.DrawUI();
+    if (sceneKind == SceneKind::Fog) {
+        fogScene.DrawUI();
+    }
 
     ImGui::Separator();
     ImGui::Text("Frame %.3f ms (%.1f FPS)",
