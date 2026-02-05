@@ -395,10 +395,10 @@ void GRoad::CreateDepth(UINT w, UINT h) {
         D3D12_RESOURCE_STATE_DEPTH_WRITE, &clear, IID_PPV_ARGS(&depth)),
         "CreateCommittedResource(Depth)");
 
-    D3D12_DEPTH_STENCIL_VIEW_DESC dsv{};
-    dsv.Format = DXGI_FORMAT_D32_FLOAT;
-    dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-    device->CreateDepthStencilView(depth.Get(), &dsv, dsv);
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
+    dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+    dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    device->CreateDepthStencilView(depth.Get(), &dsvDesc, dsv);
 }
 
 void GRoad::CreateSceneColor(UINT w, UINT h)
