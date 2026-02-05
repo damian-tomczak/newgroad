@@ -73,7 +73,7 @@ void GRoad::LoadSettings()
     in >> savedScene;
     if (!in) return;
 
-    savedScene = std::clamp(savedScene, 0, 2);
+    savedScene = std::clamp(savedScene, 0, 3);
     sceneKind = static_cast<SceneKind>(savedScene);
 }
 
@@ -112,13 +112,13 @@ LRESULT GRoad::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_RBUTTONUP:
     case WM_MOUSEMOVE:
     {
-        if ((sceneKind == SceneKind::Whirligig || sceneKind == SceneKind::Jelly) && ImGui::GetCurrentContext()) {
+        if ((sceneKind == SceneKind::Whirligig || sceneKind == SceneKind::Jelly || sceneKind == SceneKind::Fog) && ImGui::GetCurrentContext()) {
             ImGuiIO& io = ImGui::GetIO();
             bool imguiWantsMouse = io.WantCaptureMouse;
             if (!imguiWantsMouse) {
                 int x = GET_X_LPARAM(lParam);
                 if (x >= (int)menuWidth) {
-                    if (sceneKind == SceneKind::Whirligig) whirligig.OnMouseMessage(msg, wParam, lParam);
+                    if (sceneKind == SceneKind::Whirligig || sceneKind == SceneKind::Fog) whirligig.OnMouseMessage(msg, wParam, lParam);
                     else jelly.OnMouseMessage(msg, wParam, lParam);
                 }
             }
@@ -136,12 +136,16 @@ LRESULT GRoad::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     }
     case WM_MOUSEWHEEL:
     {
-        if ((sceneKind == SceneKind::Whirligig || sceneKind == SceneKind::Jelly) && ImGui::GetCurrentContext()) {
+        if ((sceneKind == SceneKind::Whirligig || sceneKind == SceneKind::Jelly || sceneKind == SceneKind::Fog) && ImGui::GetCurrentContext()) {
             ImGuiIO& io = ImGui::GetIO();
             bool imguiWantsMouse = io.WantCaptureMouse;
             if (!imguiWantsMouse) {
-                whirligig.OnMouseMessage(msg, wParam, lParam);
-                jelly.OnMouseMessage(msg, wParam, lParam);
+                if (sceneKind == SceneKind::Whirligig || sceneKind == SceneKind::Fog) {
+                    whirligig.OnMouseMessage(msg, wParam, lParam);
+                }
+                if (sceneKind == SceneKind::Jelly) {
+                    jelly.OnMouseMessage(msg, wParam, lParam);
+                }
             }
         }
         return 0;
@@ -384,8 +388,11 @@ void GRoad::RenderFrame() {
     else if (sceneKind == SceneKind::Whirligig) {
         whirligig.Render(commandList.Get());
     }
-    else {
+    else if (sceneKind == SceneKind::Jelly) {
         jelly.Render(commandList.Get());
+    }
+    else {
+        whirligig.Render(commandList.Get());
     }
 
     // Prepare SRVs for postprocess
@@ -513,11 +520,11 @@ void GRoad::DrawUI()
     ImGui::Begin("Scenes", nullptr, flags);
     ImGui::SliderFloat("Menu width", &menuWidth, minWidth, maxWidth);
 
-    const char* items[] = { "Triangle", "Whirligig", "Jelly" };
+    const char* items[] = { "Triangle", "Whirligig", "Jelly", "Fog" };
     int idx = static_cast<int>(sceneKind);
 
     if (ImGui::Combo("Scene", &idx, items, IM_ARRAYSIZE(items))) {
-        idx = std::clamp(idx, 0, 2);
+        idx = std::clamp(idx, 0, 3);
         sceneKind = static_cast<SceneKind>(idx);
         SaveSettings();
     }
@@ -681,6 +688,28 @@ void GRoad::DrawUI()
         ImGui::Separator();
     }
 
+
+    else if (sceneKind == SceneKind::Fog)
+    {
+        ImGui::Separator();
+        ImGui::Text("Fog scene");
+        ImGui::TextWrapped("Renders the Whirligig geometry with postprocess fog controls below.");
+
+        if (ImGui::Button(whirligig.running ? "Stop" : "Start")) {
+            whirligig.running = !whirligig.running;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Reset")) {
+            whirligig.ResetState();
+        }
+
+        ImGui::Checkbox("Cube", &whirligig.showCube);
+        ImGui::Checkbox("Trajectory", &whirligig.showTrajectory);
+        ImGui::Checkbox("Grid", &whirligig.showPlane);
+        ImGui::Checkbox("Axes", &whirligig.showAxes);
+
+        ImGui::Separator();
+    }
     fogScene.DrawUI();
 
     ImGui::Separator();

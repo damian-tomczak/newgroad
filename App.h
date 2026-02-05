@@ -92,7 +92,7 @@ private:
     ComPtr<ID3D12Resource>         sceneColor;
     D3D12_CPU_DESCRIPTOR_HANDLE    sceneRtv{};
 
-    enum class SceneKind : int { Triangle = 0, Whirligig = 1, Jelly = 2 };
+    enum class SceneKind : int { Triangle = 0, Whirligig = 1, Jelly = 2, Fog = 3 };
     SceneKind                      sceneKind;
     TriangleScene                  triangle;
     WhirligigScene                 whirligig;
