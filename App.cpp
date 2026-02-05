@@ -197,8 +197,30 @@ void GRoad::Run(HINSTANCE hInstance, int nCmdShow) {
     InitD3D();
     InitImGui();
     InitScenes();
+    LoadSettings();
     MainLoop();
     Cleanup();
+}
+
+void GRoad::LoadSettings()
+{
+    std::ifstream in("groad_settings.ini");
+    if (!in) return;
+
+    int savedScene = static_cast<int>(SceneKind::Jelly);
+    in >> savedScene;
+    if (!in) return;
+
+    savedScene = std::clamp(savedScene, 0, 2);
+    sceneKind = static_cast<SceneKind>(savedScene);
+}
+
+void GRoad::SaveSettings() const
+{
+    std::ofstream out("groad_settings.ini", std::ios::trunc);
+    if (!out) return;
+
+    out << static_cast<int>(sceneKind) << "\n";
 }
 
 LRESULT CALLBACK GRoad::WndProcSetup(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -789,6 +811,7 @@ void GRoad::DrawUI()
     if (ImGui::Combo("Scene", &idx, items, IM_ARRAYSIZE(items))) {
         idx = std::clamp(idx, 0, 2);
         sceneKind = static_cast<SceneKind>(idx);
+        SaveSettings();
     }
 
     if (sceneKind == SceneKind::Triangle)
@@ -1022,6 +1045,8 @@ void GRoad::OnResize(UINT newW, UINT newH) {
 }
 
 void GRoad::Cleanup() {
+    SaveSettings();
+
     if (commandQueue && fence) WaitForGPU();
 
     ImGui_ImplDX12_Shutdown();

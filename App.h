@@ -40,6 +40,8 @@ private:
     void MainLoop();
     void RenderFrame();
     void DrawUI();
+    void LoadSettings();
+    void SaveSettings() const;
 
     void MoveToNextFrame();
     void WaitForGPU();
