@@ -168,24 +168,24 @@ struct FogCBData {
 
 // -------------------- GRoad --------------------
 GRoad::GRoad(UINT w, UINT h)
-    : m_hwnd(nullptr)
-    , m_width(w)
-    , m_height(h)
-    , m_rtvDescriptorSize(0)
-    , m_frameIndex(0)
-    , m_fenceEvent(nullptr)
-    , m_sceneKind(SceneKind::Jelly)
-    , m_prev(steady_clock::now())
-    , m_menuWidth(320.0f)
+    : hwnd(nullptr)
+    , width(w)
+    , height(h)
+    , rtvDescriptorSize(0)
+    , frameIndex(0)
+    , fenceEvent(nullptr)
+    , sceneKind(SceneKind::Jelly)
+    , prev(steady_clock::now())
+    , menuWidth(320.0f)
 {
-    m_dsv = {};
-    m_viewport = {};
-    m_scissor = {};
-    m_sceneRtv = {};
+    dsv = {};
+    viewport = {};
+    scissor = {};
+    sceneRtv = {};
     for (UINT i = 0; i < FrameCount; ++i) {
-        m_renderTargets[i].Reset();
-        m_commandAllocators[i].Reset();
-        m_fenceValues[i] = 0;
+        renderTargets[i].Reset();
+        commandAllocators[i].Reset();
+        fenceValues[i] = 0;
     }
 }
 
@@ -228,23 +228,23 @@ LRESULT GRoad::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_RBUTTONUP:
     case WM_MOUSEMOVE:
     {
-        if ((m_sceneKind == SceneKind::Whirligig || m_sceneKind == SceneKind::Jelly) && ImGui::GetCurrentContext()) {
+        if ((sceneKind == SceneKind::Whirligig || sceneKind == SceneKind::Jelly) && ImGui::GetCurrentContext()) {
             ImGuiIO& io = ImGui::GetIO();
             bool imguiWantsMouse = io.WantCaptureMouse;
             if (!imguiWantsMouse) {
                 int x = GET_X_LPARAM(lParam);
-                if (x >= (int)m_menuWidth) {
-                    if (m_sceneKind == SceneKind::Whirligig) m_whirligig.OnMouseMessage(msg, wParam, lParam);
-                    else m_jelly.OnMouseMessage(msg, wParam, lParam);
+                if (x >= (int)menuWidth) {
+                    if (sceneKind == SceneKind::Whirligig) whirligig.OnMouseMessage(msg, wParam, lParam);
+                    else jelly.OnMouseMessage(msg, wParam, lParam);
                 }
             }
         }
-        if (m_sceneKind == SceneKind::Jelly && ImGui::GetCurrentContext()) {
+        if (sceneKind == SceneKind::Jelly && ImGui::GetCurrentContext()) {
             ImGuiIO& io = ImGui::GetIO();
             if (!io.WantCaptureMouse) {
                 int x = (int)(short)LOWORD(lParam);
-                if (x >= (int)m_menuWidth) {
-                    m_jelly.OnMouseMessage(msg, wParam, lParam);
+                if (x >= (int)menuWidth) {
+                    jelly.OnMouseMessage(msg, wParam, lParam);
                 }
             }
         }
@@ -252,19 +252,19 @@ LRESULT GRoad::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     }
     case WM_MOUSEWHEEL:
     {
-        if ((m_sceneKind == SceneKind::Whirligig || m_sceneKind == SceneKind::Jelly) && ImGui::GetCurrentContext()) {
+        if ((sceneKind == SceneKind::Whirligig || sceneKind == SceneKind::Jelly) && ImGui::GetCurrentContext()) {
             ImGuiIO& io = ImGui::GetIO();
             bool imguiWantsMouse = io.WantCaptureMouse;
             if (!imguiWantsMouse) {
-                m_whirligig.OnMouseMessage(msg, wParam, lParam);
-                m_jelly.OnMouseMessage(msg, wParam, lParam);
+                whirligig.OnMouseMessage(msg, wParam, lParam);
+                jelly.OnMouseMessage(msg, wParam, lParam);
             }
         }
         return 0;
     }
 
     case WM_SIZE:
-        if (m_swapChain && wParam != SIZE_MINIMIZED) {
+        if (swapChain && wParam != SIZE_MINIMIZED) {
             UINT w = LOWORD(lParam);
             UINT h = HIWORD(lParam);
             if (!w) w = 1; if (!h) h = 1;
@@ -290,14 +290,14 @@ void GRoad::RegisterWindowClass(HINSTANCE hInstance) {
 }
 
 void GRoad::CreateAppWindow(HINSTANCE hInstance, int nCmdShow) {
-    RECT rc{ 0,0,(LONG)m_width,(LONG)m_height };
+    RECT rc{ 0,0,(LONG)width,(LONG)height };
     AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
-    m_hwnd = CreateWindowEx(0, L"DX12ScenesWinClass", L"GRoad",
+    hwnd = CreateWindowEx(0, L"DX12ScenesWinClass", L"GRoad",
         WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
         rc.right - rc.left, rc.bottom - rc.top,
         nullptr, nullptr, hInstance, this);
-    ShowWindow(m_hwnd, nCmdShow);
-    UpdateWindow(m_hwnd);
+    ShowWindow(hwnd, nCmdShow);
+    UpdateWindow(hwnd);
 }
 
 void GRoad::InitD3D() {
@@ -309,73 +309,73 @@ void GRoad::InitD3D() {
         factoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
     }
 #endif
-    HR(CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&m_factory)), "CreateDXGIFactory2");
+    HR(CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&factory)), "CreateDXGIFactory2");
 
-    HRESULT hr = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device));
+    HRESULT hr = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device));
     if (FAILED(hr)) {
         ComPtr<IDXGIAdapter> warp;
-        HR(m_factory->EnumWarpAdapter(IID_PPV_ARGS(&warp)), "EnumWarpAdapter");
-        HR(D3D12CreateDevice(warp.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device)),
+        HR(factory->EnumWarpAdapter(IID_PPV_ARGS(&warp)), "EnumWarpAdapter");
+        HR(D3D12CreateDevice(warp.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device)),
             "D3D12CreateDevice(WARP)");
     }
 
     D3D12_COMMAND_QUEUE_DESC q{}; q.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-    HR(m_device->CreateCommandQueue(&q, IID_PPV_ARGS(&m_commandQueue)), "CreateCommandQueue");
+    HR(device->CreateCommandQueue(&q, IID_PPV_ARGS(&commandQueue)), "CreateCommandQueue");
 
     DXGI_SWAP_CHAIN_DESC1 sc{};
     sc.BufferCount = FrameCount;
-    sc.Width = m_width; sc.Height = m_height;
+    sc.Width = width; sc.Height = height;
     sc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     sc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     sc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     sc.SampleDesc.Count = 1;
     ComPtr<IDXGISwapChain1> sc1;
-    HR(m_factory->CreateSwapChainForHwnd(m_commandQueue.Get(), m_hwnd, &sc, nullptr, nullptr, &sc1),
+    HR(factory->CreateSwapChainForHwnd(commandQueue.Get(), hwnd, &sc, nullptr, nullptr, &sc1),
         "CreateSwapChainForHwnd");
-    HR(sc1.As(&m_swapChain), "SwapChain1->As<IDXGISwapChain3>");
-    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+    HR(sc1.As(&swapChain), "SwapChain1->As<IDXGISwapChain3>");
+    frameIndex = swapChain->GetCurrentBackBufferIndex();
 
     D3D12_DESCRIPTOR_HEAP_DESC rtvDesc{}; rtvDesc.NumDescriptors = FrameCount; rtvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-    HR(m_device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&m_rtvHeap)), "CreateDescriptorHeap(RTV)");
-    m_rtvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+    HR(device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&rtvHeap)), "CreateDescriptorHeap(RTV)");
+    rtvDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     CreateRTVs();
 
     D3D12_DESCRIPTOR_HEAP_DESC dsvDesc{}; dsvDesc.NumDescriptors = 1; dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-    HR(m_device->CreateDescriptorHeap(&dsvDesc, IID_PPV_ARGS(&m_dsvHeap)), "CreateDescriptorHeap(DSV)");
-    m_dsv = m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
-    CreateDepth(m_width, m_height);
+    HR(device->CreateDescriptorHeap(&dsvDesc, IID_PPV_ARGS(&dsvHeap)), "CreateDescriptorHeap(DSV)");
+    dsv = dsvHeap->GetCPUDescriptorHandleForHeapStart();
+    CreateDepth(width, height);
 
     // Offscreen scene color target
-    CreateSceneColor(m_width, m_height);
+    CreateSceneColor(width, height);
 
     for (UINT i = 0; i < FrameCount; ++i)
-        HR(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocators[i])),
+        HR(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocators[i])),
             "CreateCommandAllocator");
-    HR(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
-        m_commandAllocators[m_frameIndex].Get(), nullptr, IID_PPV_ARGS(&m_commandList)),
+    HR(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+        commandAllocators[frameIndex].Get(), nullptr, IID_PPV_ARGS(&commandList)),
         "CreateCommandList");
-    HR(m_commandList->Close(), "Close(CommandList)");
+    HR(commandList->Close(), "Close(CommandList)");
 
-    HR(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)), "CreateFence");
-    m_fenceValues[m_frameIndex] = 1;
-    m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    if (!m_fenceEvent) HR(HRESULT_FROM_WIN32(GetLastError()), "CreateEvent");
+    HR(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)), "CreateFence");
+    fenceValues[frameIndex] = 1;
+    fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    if (!fenceEvent) HR(HRESULT_FROM_WIN32(GetLastError()), "CreateEvent");
 
-    m_viewport = { 0.0f, 0.0f, float(m_width), float(m_height), 0.0f, 1.0f };
-    m_scissor = { 0, 0, (LONG)m_width, (LONG)m_height };
+    viewport = { 0.0f, 0.0f, float(width), float(height), 0.0f, 1.0f };
+    scissor = { 0, 0, (LONG)width, (LONG)height };
 }
 
 void GRoad::CreateRTVs() {
-    D3D12_CPU_DESCRIPTOR_HANDLE h = m_rtvHeap->GetCPUDescriptorHandleForHeapStart();
+    D3D12_CPU_DESCRIPTOR_HANDLE h = rtvHeap->GetCPUDescriptorHandleForHeapStart();
     for (UINT i = 0; i < FrameCount; ++i) {
-        HR(m_swapChain->GetBuffer(i, IID_PPV_ARGS(&m_renderTargets[i])), "SwapChain->GetBuffer");
-        m_device->CreateRenderTargetView(m_renderTargets[i].Get(), nullptr, h);
-        h.ptr += m_rtvDescriptorSize;
+        HR(swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTargets[i])), "SwapChain->GetBuffer");
+        device->CreateRenderTargetView(renderTargets[i].Get(), nullptr, h);
+        h.ptr += rtvDescriptorSize;
     }
 }
 
 void GRoad::CreateDepth(UINT w, UINT h) {
-    m_depth.Reset();
+    depth.Reset();
 
     D3D12_RESOURCE_DESC tex{};
     tex.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -391,27 +391,27 @@ void GRoad::CreateDepth(UINT w, UINT h) {
     clear.DepthStencil.Depth = 1.0f;
 
     D3D12_HEAP_PROPERTIES heap{}; heap.Type = D3D12_HEAP_TYPE_DEFAULT;
-    HR(m_device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &tex,
-        D3D12_RESOURCE_STATE_DEPTH_WRITE, &clear, IID_PPV_ARGS(&m_depth)),
+    HR(device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &tex,
+        D3D12_RESOURCE_STATE_DEPTH_WRITE, &clear, IID_PPV_ARGS(&depth)),
         "CreateCommittedResource(Depth)");
 
     D3D12_DEPTH_STENCIL_VIEW_DESC dsv{};
     dsv.Format = DXGI_FORMAT_D32_FLOAT;
     dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-    m_device->CreateDepthStencilView(m_depth.Get(), &dsv, m_dsv);
+    device->CreateDepthStencilView(depth.Get(), &dsv, dsv);
 }
 
 void GRoad::CreateSceneColor(UINT w, UINT h)
 {
-    m_sceneColor.Reset();
+    sceneColor.Reset();
 
-    if (!m_sceneRtvHeap) {
+    if (!sceneRtvHeap) {
         D3D12_DESCRIPTOR_HEAP_DESC rtv{};
         rtv.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
         rtv.NumDescriptors = 1;
-        HR(m_device->CreateDescriptorHeap(&rtv, IID_PPV_ARGS(&m_sceneRtvHeap)), "CreateScene RTV heap");
+        HR(device->CreateDescriptorHeap(&rtv, IID_PPV_ARGS(&sceneRtvHeap)), "CreateScene RTV heap");
     }
-    m_sceneRtv = m_sceneRtvHeap->GetCPUDescriptorHandleForHeapStart();
+    sceneRtv = sceneRtvHeap->GetCPUDescriptorHandleForHeapStart();
 
     D3D12_RESOURCE_DESC tex{};
     tex.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -427,11 +427,11 @@ void GRoad::CreateSceneColor(UINT w, UINT h)
     clear.Color[0] = 0.06f; clear.Color[1] = 0.07f; clear.Color[2] = 0.10f; clear.Color[3] = 1.0f;
 
     D3D12_HEAP_PROPERTIES heap{}; heap.Type = D3D12_HEAP_TYPE_DEFAULT;
-    HR(m_device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &tex,
-        D3D12_RESOURCE_STATE_RENDER_TARGET, &clear, IID_PPV_ARGS(&m_sceneColor)),
+    HR(device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &tex,
+        D3D12_RESOURCE_STATE_RENDER_TARGET, &clear, IID_PPV_ARGS(&sceneColor)),
         "CreateCommittedResource(SceneColor)");
 
-    m_device->CreateRenderTargetView(m_sceneColor.Get(), nullptr, m_sceneRtv);
+    device->CreateRenderTargetView(sceneColor.Get(), nullptr, sceneRtv);
 }
 
 void GRoad::InitImGui() {
@@ -439,22 +439,22 @@ void GRoad::InitImGui() {
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
 
-    m_srvDescSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    srvDescSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
     D3D12_DESCRIPTOR_HEAP_DESC heap{};
     heap.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     heap.NumDescriptors = 16; // [0]=ImGui font, [1]=scene SRV, [2]=depth SRV
     heap.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    HR(m_device->CreateDescriptorHeap(&heap, IID_PPV_ARGS(&m_srvHeap)), "CreateDescriptorHeap(SRV)");
+    HR(device->CreateDescriptorHeap(&heap, IID_PPV_ARGS(&srvHeap)), "CreateDescriptorHeap(SRV)");
 
-    auto cpu0 = m_srvHeap->GetCPUDescriptorHandleForHeapStart();
-    auto gpu0 = m_srvHeap->GetGPUDescriptorHandleForHeapStart();
+    auto cpu0 = srvHeap->GetCPUDescriptorHandleForHeapStart();
+    auto gpu0 = srvHeap->GetGPUDescriptorHandleForHeapStart();
 
-    ImGui_ImplWin32_Init(m_hwnd);
+    ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX12_Init(
-        m_device.Get(), FrameCount,
+        device.Get(), FrameCount,
         DXGI_FORMAT_R8G8B8A8_UNORM,
-        m_srvHeap.Get(),
+        srvHeap.Get(),
         cpu0, gpu0);
 
     CreatePostprocess();
@@ -462,9 +462,9 @@ void GRoad::InitImGui() {
 }
 
 void GRoad::InitScenes() {
-    m_triangle.Init(m_device.Get());
-    m_whirligig.Init(m_device.Get());
-    m_jelly.Init(m_device.Get());
+    triangle.Init(device.Get());
+    whirligig.Init(device.Get());
+    jelly.Init(device.Get());
 }
 
 void GRoad::MainLoop() {
@@ -519,8 +519,8 @@ void GRoad::CreatePostprocess()
 
     ComPtr<ID3DBlob> sig, err;
     HR(D3D12SerializeRootSignature(&rs, D3D_ROOT_SIGNATURE_VERSION_1, &sig, &err), "SerializeRootSignature");
-    HR(m_device->CreateRootSignature(0, sig->GetBufferPointer(), sig->GetBufferSize(),
-        IID_PPV_ARGS(&m_fogRootSig)), "CreateRootSignature");
+    HR(device->CreateRootSignature(0, sig->GetBufferPointer(), sig->GetBufferSize(),
+        IID_PPV_ARGS(&fogRootSig)), "CreateRootSignature");
 
     UINT flags = 0;
 #if defined(_DEBUG)
@@ -543,7 +543,7 @@ void GRoad::CreatePostprocess()
     }
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pso{};
-    pso.pRootSignature = m_fogRootSig.Get();
+    pso.pRootSignature = fogRootSig.Get();
     pso.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
     pso.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
     pso.BlendState = DefaultBlend();
@@ -555,11 +555,11 @@ void GRoad::CreatePostprocess()
     pso.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
     pso.SampleDesc.Count = 1;
 
-    HR(m_device->CreateGraphicsPipelineState(&pso, IID_PPV_ARGS(&m_fogPSO)), "Create fog PSO");
+    HR(device->CreateGraphicsPipelineState(&pso, IID_PPV_ARGS(&fogPSO)), "Create fog PSO");
 
     // Constant buffer (double buffered)
-    m_fogCBStride = Align256((UINT)sizeof(FogCBData));
-    UINT totalSize = m_fogCBStride * FrameCount;
+    fogCBStride = Align256((UINT)sizeof(FogCBData));
+    UINT totalSize = fogCBStride * FrameCount;
 
     D3D12_HEAP_PROPERTIES up{};
     up.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -573,16 +573,16 @@ void GRoad::CreatePostprocess()
     buf.SampleDesc.Count = 1;
     buf.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-    HR(m_device->CreateCommittedResource(&up, D3D12_HEAP_FLAG_NONE, &buf,
-        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_fogCB)),
+    HR(device->CreateCommittedResource(&up, D3D12_HEAP_FLAG_NONE, &buf,
+        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&fogCB)),
         "Create fog CB");
 
-    HR(m_fogCB->Map(0, nullptr, (void**)&m_fogCBMapped), "Map fog CB");
+    HR(fogCB->Map(0, nullptr, (void**)&fogCBMapped), "Map fog CB");
 }
 
 void GRoad::CreatePostprocessDescriptors()
 {
-    if (!m_srvHeap || !m_sceneColor || !m_depth) return;
+    if (!srvHeap || !sceneColor || !depth) return;
 
     // t0 = scene color at heap index 1
     D3D12_SHADER_RESOURCE_VIEW_DESC s0{};
@@ -590,7 +590,7 @@ void GRoad::CreatePostprocessDescriptors()
     s0.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     s0.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     s0.Texture2D.MipLevels = 1;
-    m_device->CreateShaderResourceView(m_sceneColor.Get(), &s0, CpuAt(m_srvHeap.Get(), 1, m_srvDescSize));
+    device->CreateShaderResourceView(sceneColor.Get(), &s0, CpuAt(srvHeap.Get(), 1, srvDescSize));
 
     // t1 = depth (R32_FLOAT view of R32_TYPELESS resource) at heap index 2
     D3D12_SHADER_RESOURCE_VIEW_DESC s1{};
@@ -598,84 +598,84 @@ void GRoad::CreatePostprocessDescriptors()
     s1.Format = DXGI_FORMAT_R32_FLOAT;
     s1.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     s1.Texture2D.MipLevels = 1;
-    m_device->CreateShaderResourceView(m_depth.Get(), &s1, CpuAt(m_srvHeap.Get(), 2, m_srvDescSize));
+    device->CreateShaderResourceView(depth.Get(), &s1, CpuAt(srvHeap.Get(), 2, srvDescSize));
 }
 
 void GRoad::DrawFogPostprocess()
 {
     FogCBData cb{};
-    cb.invSize[0] = 1.0f / (float)m_width;
-    cb.invSize[1] = 1.0f / (float)m_height;
+    cb.invSize[0] = 1.0f / (float)width;
+    cb.invSize[1] = 1.0f / (float)height;
 
-    cb.fogColor[0] = m_fogColor[0];
-    cb.fogColor[1] = m_fogColor[1];
-    cb.fogColor[2] = m_fogColor[2];
+    cb.fogColor[0] = fogColor[0];
+    cb.fogColor[1] = fogColor[1];
+    cb.fogColor[2] = fogColor[2];
 
-    cb.fogDensity = m_fogEnabled ? m_fogDensity : 0.0f;
-    cb.fogStart = m_fogStart;
-    cb.fogEnd = m_fogEnd;
-    cb.nearZ = m_nearZ;
-    cb.farZ = m_farZ;
+    cb.fogDensity = fogEnabled ? fogDensity : 0.0f;
+    cb.fogStart = fogStart;
+    cb.fogEnd = fogEnd;
+    cb.nearZ = nearZ;
+    cb.farZ = farZ;
 
-    uint8_t* dst = m_fogCBMapped + (size_t)m_frameIndex * m_fogCBStride;
+    uint8_t* dst = fogCBMapped + (size_t)frameIndex * fogCBStride;
     std::memcpy(dst, &cb, sizeof(cb));
 
     D3D12_GPU_VIRTUAL_ADDRESS cbAddr =
-        m_fogCB->GetGPUVirtualAddress() + (UINT64)m_frameIndex * (UINT64)m_fogCBStride;
+        fogCB->GetGPUVirtualAddress() + (UINT64)frameIndex * (UINT64)fogCBStride;
 
     // SRV table starts at heap index 1: t0=scene, t1=depth
-    auto srvGpu = GpuAt(m_srvHeap.Get(), 1, m_srvDescSize);
+    auto srvGpu = GpuAt(srvHeap.Get(), 1, srvDescSize);
 
-    m_commandList->SetPipelineState(m_fogPSO.Get());
-    m_commandList->SetGraphicsRootSignature(m_fogRootSig.Get());
-    m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    m_commandList->SetGraphicsRootConstantBufferView(0, cbAddr);
-    m_commandList->SetGraphicsRootDescriptorTable(1, srvGpu);
-    m_commandList->DrawInstanced(3, 1, 0, 0);
+    commandList->SetPipelineState(fogPSO.Get());
+    commandList->SetGraphicsRootSignature(fogRootSig.Get());
+    commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    commandList->SetGraphicsRootConstantBufferView(0, cbAddr);
+    commandList->SetGraphicsRootDescriptorTable(1, srvGpu);
+    commandList->DrawInstanced(3, 1, 0, 0);
 }
 
 void GRoad::RenderFrame() {
-    HR(m_commandAllocators[m_frameIndex]->Reset(), "CmdAlloc->Reset");
-    HR(m_commandList->Reset(m_commandAllocators[m_frameIndex].Get(), nullptr), "CmdList->Reset");
+    HR(commandAllocators[frameIndex]->Reset(), "CmdAlloc->Reset");
+    HR(commandList->Reset(commandAllocators[frameIndex].Get(), nullptr), "CmdList->Reset");
 
     // Scene pass: render into offscreen scene color + depth
-    m_commandList->RSSetViewports(1, &m_viewport);
-    m_commandList->RSSetScissorRects(1, &m_scissor);
+    commandList->RSSetViewports(1, &viewport);
+    commandList->RSSetScissorRects(1, &scissor);
 
-    m_commandList->OMSetRenderTargets(1, &m_sceneRtv, FALSE, &m_dsv);
+    commandList->OMSetRenderTargets(1, &sceneRtv, FALSE, &dsv);
 
     const float clear[4] = { 0.06f, 0.07f, 0.10f, 1.0f };
-    m_commandList->ClearRenderTargetView(m_sceneRtv, clear, 0, nullptr);
-    m_commandList->ClearDepthStencilView(m_dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, 0);
+    commandList->ClearRenderTargetView(sceneRtv, clear, 0, nullptr);
+    commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, 0);
 
-    if (m_sceneKind == SceneKind::Triangle) {
-        m_triangle.Render(m_commandList.Get());
+    if (sceneKind == SceneKind::Triangle) {
+        triangle.Render(commandList.Get());
     }
-    else if (m_sceneKind == SceneKind::Whirligig) {
-        m_whirligig.Render(m_commandList.Get());
+    else if (sceneKind == SceneKind::Whirligig) {
+        whirligig.Render(commandList.Get());
     }
     else {
-        m_jelly.Render(m_commandList.Get());
+        jelly.Render(commandList.Get());
     }
 
     // Prepare SRVs for postprocess
-    Transition(m_commandList.Get(), m_sceneColor.Get(),
+    Transition(commandList.Get(), sceneColor.Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-    Transition(m_commandList.Get(), m_depth.Get(),
+    Transition(commandList.Get(), depth.Get(),
         D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
     // Backbuffer to RT for post + UI
-    Transition(m_commandList.Get(), m_renderTargets[m_frameIndex].Get(),
+    Transition(commandList.Get(), renderTargets[frameIndex].Get(),
         D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-    D3D12_CPU_DESCRIPTOR_HANDLE backRtv = m_rtvHeap->GetCPUDescriptorHandleForHeapStart();
-    backRtv.ptr += m_frameIndex * m_rtvDescriptorSize;
-    m_commandList->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
+    D3D12_CPU_DESCRIPTOR_HANDLE backRtv = rtvHeap->GetCPUDescriptorHandleForHeapStart();
+    backRtv.ptr += frameIndex * rtvDescriptorSize;
+    commandList->OMSetRenderTargets(1, &backRtv, FALSE, nullptr);
 
     // Shared heap for postprocess + ImGui
-    ID3D12DescriptorHeap* heaps[] = { m_srvHeap.Get() };
-    m_commandList->SetDescriptorHeaps(1, heaps);
+    ID3D12DescriptorHeap* heaps[] = { srvHeap.Get() };
+    commandList->SetDescriptorHeaps(1, heaps);
 
     // Fog postprocess into backbuffer
     DrawFogPostprocess();
@@ -686,23 +686,23 @@ void GRoad::RenderFrame() {
     ImGui::NewFrame();
     DrawUI();
     ImGui::Render();
-    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
+    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), commandList.Get());
 
     // Restore resources for next frame
-    Transition(m_commandList.Get(), m_sceneColor.Get(),
+    Transition(commandList.Get(), sceneColor.Get(),
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-    Transition(m_commandList.Get(), m_depth.Get(),
+    Transition(commandList.Get(), depth.Get(),
         D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 
     // Backbuffer to present
-    Transition(m_commandList.Get(), m_renderTargets[m_frameIndex].Get(),
+    Transition(commandList.Get(), renderTargets[frameIndex].Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 
-    HR(m_commandList->Close(), "CmdList->Close");
-    ID3D12CommandList* lists[] = { m_commandList.Get() };
-    m_commandQueue->ExecuteCommandLists(1, lists);
-    HR(m_swapChain->Present(1, 0), "SwapChain->Present");
+    HR(commandList->Close(), "CmdList->Close");
+    ID3D12CommandList* lists[] = { commandList.Get() };
+    commandQueue->ExecuteCommandLists(1, lists);
+    HR(swapChain->Present(1, 0), "SwapChain->Present");
 
     MoveToNextFrame();
 }
@@ -766,185 +766,185 @@ static bool SliderIntWithInput(const char* label,
 void GRoad::DrawUI()
 {
     auto now = steady_clock::now();
-    float dt = duration_cast<duration<float>>(now - m_prev).count();
-    m_prev = now;
+    float dt = duration_cast<duration<float>>(now - prev).count();
+    prev = now;
 
     float minWidth = 200.0f;
-    float maxWidth = (float)std::max(250u, m_width - 100u);
-    m_menuWidth = std::clamp(m_menuWidth, minWidth, maxWidth);
+    float maxWidth = (float)std::max(250u, width - 100u);
+    menuWidth = std::clamp(menuWidth, minWidth, maxWidth);
 
     ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(m_menuWidth, (float)m_height));
+    ImGui::SetNextWindowSize(ImVec2(menuWidth, (float)height));
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoCollapse;
 
     ImGui::Begin("Scenes", nullptr, flags);
-    ImGui::SliderFloat("Menu width", &m_menuWidth, minWidth, maxWidth);
+    ImGui::SliderFloat("Menu width", &menuWidth, minWidth, maxWidth);
 
     const char* items[] = { "Triangle", "Whirligig", "Jelly" };
-    int idx = static_cast<int>(m_sceneKind);
+    int idx = static_cast<int>(sceneKind);
 
     if (ImGui::Combo("Scene", &idx, items, IM_ARRAYSIZE(items))) {
         idx = std::clamp(idx, 0, 2);
-        m_sceneKind = static_cast<SceneKind>(idx);
+        sceneKind = static_cast<SceneKind>(idx);
     }
 
-    if (m_sceneKind == SceneKind::Triangle)
+    if (sceneKind == SceneKind::Triangle)
     {
         ImGui::Separator();
         ImGui::Text("Triangle scene");
     }
-    else if (m_sceneKind == SceneKind::Whirligig)
+    else if (sceneKind == SceneKind::Whirligig)
     {
         ImGui::Separator();
-        if (ImGui::Button(m_whirligig.running ? "Stop" : "Start")) {
-            m_whirligig.running = !m_whirligig.running;
+        if (ImGui::Button(whirligig.running ? "Stop" : "Start")) {
+            whirligig.running = !whirligig.running;
         }
         ImGui::SameLine();
         if (ImGui::Button("Reset")) {
-            m_whirligig.ResetState();
+            whirligig.ResetState();
         }
 
-        ImGui::Checkbox("Cube", &m_whirligig.showCube);
-        ImGui::Checkbox("Diagonal", &m_whirligig.showDiagonal);
-        ImGui::Checkbox("Trajectory", &m_whirligig.showTrajectory);
-        ImGui::Checkbox("Grid", &m_whirligig.showPlane);
-        ImGui::Checkbox("Axes", &m_whirligig.showAxes);
+        ImGui::Checkbox("Cube", &whirligig.showCube);
+        ImGui::Checkbox("Diagonal", &whirligig.showDiagonal);
+        ImGui::Checkbox("Trajectory", &whirligig.showTrajectory);
+        ImGui::Checkbox("Grid", &whirligig.showPlane);
+        ImGui::Checkbox("Axes", &whirligig.showAxes);
 
         bool changed = false;
 
         changed |= SliderFloatWithInput("Cube size [m]",
-            &m_whirligig.cubeSize,
+            &whirligig.cubeSize,
             0.2f, 2.0f);
 
         changed |= SliderFloatWithInput("Density [kg/m^3]",
-            &m_whirligig.density,
+            &whirligig.density,
             0.1f, 10.0f);
 
         changed |= SliderFloatWithInput("Inflection [deg]",
-            &m_whirligig.inflectionDeg,
+            &whirligig.inflectionDeg,
             0.0f, 90.0f);
 
         changed |= SliderFloatWithInput("|omega| [rad/s]",
-            &m_whirligig.omegaMag,
+            &whirligig.omegaMag,
             0.0f, 50.0f);
 
-        int len = (int)m_whirligig.trajLength;
+        int len = (int)whirligig.trajLength;
         changed |= SliderIntWithInput("Trajectory length [points]",
             &len,
             100,
             (int)WhirligigScene::MaxTrajPoints);
-        m_whirligig.trajLength = (UINT)len;
+        whirligig.trajLength = (UINT)len;
 
-        ImGui::Checkbox("Use gravity (g = 9.81 m/s^2)", &m_whirligig.useGravity);
+        ImGui::Checkbox("Use gravity (g = 9.81 m/s^2)", &whirligig.useGravity);
 
         changed |= SliderFloatWithInput("Speed [× real time]",
-            &m_whirligig.speed,
+            &whirligig.speed,
             1.0f, 100.0f);
 
         changed |= SliderFloatWithInput("dt [s]",
-            &m_whirligig.dt,
+            &whirligig.dt,
             0.001f, 0.1f,
             "%.4f");
 
         if (changed) {
-            m_whirligig.ResetState();
+            whirligig.ResetState();
         }
 
         ImGui::Separator();
     }
-    else if (m_sceneKind == SceneKind::Jelly)
+    else if (sceneKind == SceneKind::Jelly)
     {
         ImGui::Separator();
         ImGui::Text("Jelly simulation");
 
         if (ImGui::Button("Start")) {
-            m_jelly.running = true;
+            jelly.running = true;
         }
         ImGui::SameLine();
         if (ImGui::Button("Pause")) {
-            m_jelly.running = false;
+            jelly.running = false;
         }
         ImGui::SameLine();
         if (ImGui::Button("Reset")) {
-            m_jelly.running = false;
-            m_jelly.ResetState();
+            jelly.running = false;
+            jelly.ResetState();
         }
 
         ImGui::Separator();
 
         SliderFloatWithInput("delta",
-            &m_jelly.fixedTimeStep,
+            &jelly.fixedTimeStep,
             0.001f, 0.05f, "%.4f");
 
         SliderFloatWithInput("simulation_speed",
-            &m_jelly.simulationSpeed,
+            &jelly.simulationSpeed,
             0.1f, 100.0f);
 
         {
-            float oldRange = m_jelly.initialRandomVelocityRange;
+            float oldRange = jelly.initialRandomVelocityRange;
             SliderFloatWithInput("distribution",
-                &m_jelly.initialRandomVelocityRange,
+                &jelly.initialRandomVelocityRange,
                 -30.0f, 30.0f);
-            if (m_jelly.initialRandomVelocityRange != oldRange) {
-                m_jelly.ResetState();
+            if (jelly.initialRandomVelocityRange != oldRange) {
+                jelly.ResetState();
             }
         }
 
         ImGui::Separator();
 
-        ImGui::Checkbox("Draw jelly points", &m_jelly.showJellyPoints);
-        ImGui::Checkbox("Draw axial springs", &m_jelly.showAxialSprings);
-        ImGui::Checkbox("Draw diagonal springs", &m_jelly.showDiagonalSprings);
-        ImGui::Checkbox("Draw bezier", &m_jelly.showBezierSurface);
+        ImGui::Checkbox("Draw jelly points", &jelly.showJellyPoints);
+        ImGui::Checkbox("Draw axial springs", &jelly.showAxialSprings);
+        ImGui::Checkbox("Draw diagonal springs", &jelly.showDiagonalSprings);
+        ImGui::Checkbox("Draw bezier", &jelly.showBezierSurface);
         ImGui::Checkbox("process_cube_constraints",
-            &m_jelly.enableControlCubeCoupling);
+            &jelly.enableControlCubeCoupling);
 
         ImGui::Separator();
 
         ImGui::InputFloat3("Gravitation",
-            (float*)&m_jelly.gravityAcceleration);
+            (float*)&jelly.gravityAcceleration);
 
         SliderFloatWithInput("mu",
-            &m_jelly.collisionRestitutionCoefficient,
+            &jelly.collisionRestitutionCoefficient,
             0.0f, 1.0f);
 
         ImGui::Text("Velocity after collision type");
         ImGui::RadioButton("one component",
-            &m_jelly.applyRestitutionToWholeVelocity, 0);
+            &jelly.applyRestitutionToWholeVelocity, 0);
         ImGui::RadioButton("whole vector",
-            &m_jelly.applyRestitutionToWholeVelocity, 1);
+            &jelly.applyRestitutionToWholeVelocity, 1);
 
         ImGui::Separator();
 
         SliderFloatWithInput("mass",
-            &m_jelly.particleMass,
+            &jelly.particleMass,
             0.01f, 20.0f);
 
         SliderFloatWithInput("damping coeff. (k)",
-            &m_jelly.linearDampingCoefficient,
+            &jelly.linearDampingCoefficient,
             0.0f, 50.0f);
 
         SliderFloatWithInput("c1",
-            &m_jelly.axialSpringStiffness,
+            &jelly.axialSpringStiffness,
             0.0f, 300.0f);
 
         SliderFloatWithInput("c2",
-            &m_jelly.shearSpringStiffness,
+            &jelly.shearSpringStiffness,
             0.0f, 300.0f);
 
         ImGui::Separator();
 
         ImGui::InputFloat3("control cube position",
-            (float*)&m_jelly.controlCubePosition);
+            (float*)&jelly.controlCubePosition);
 
         ImGui::InputFloat3("control cube rotation (deg)",
-            (float*)&m_jelly.controlCubeEulerAnglesDeg);
+            (float*)&jelly.controlCubeEulerAnglesDeg);
 
         SliderFloatWithInput("control cube depth on",
-            &m_jelly.controlCubeEdgeLength,
+            &jelly.controlCubeEdgeLength,
             0.2f, 3.0f);
 
         ImGui::Separator();
@@ -953,16 +953,16 @@ void GRoad::DrawUI()
     // ---- Postprocess fog UI ----
     ImGui::Separator();
     ImGui::Text("Postprocess fog");
-    ImGui::Checkbox("Enable fog", &m_fogEnabled);
-    ImGui::ColorEdit3("Fog color", m_fogColor);
-    ImGui::SliderFloat("Fog density", &m_fogDensity, 0.0f, 20.0f);
-    ImGui::SliderFloat("Fog start", &m_fogStart, 0.0f, 200.0f);
-    ImGui::SliderFloat("Fog end", &m_fogEnd, 0.01f, 500.0f);
-    if (m_fogEnd < m_fogStart) m_fogEnd = m_fogStart + 0.01f;
+    ImGui::Checkbox("Enable fog", &fogEnabled);
+    ImGui::ColorEdit3("Fog color", fogColor);
+    ImGui::SliderFloat("Fog density", &fogDensity, 0.0f, 20.0f);
+    ImGui::SliderFloat("Fog start", &fogStart, 0.0f, 200.0f);
+    ImGui::SliderFloat("Fog end", &fogEnd, 0.01f, 500.0f);
+    if (fogEnd < fogStart) fogEnd = fogStart + 0.01f;
 
-    ImGui::SliderFloat("Near (proj)", &m_nearZ, 0.01f, 10.0f);
-    ImGui::SliderFloat("Far (proj)", &m_farZ, 10.0f, 2000.0f);
-    if (m_farZ <= m_nearZ + 0.01f) m_farZ = m_nearZ + 0.01f;
+    ImGui::SliderFloat("Near (proj)", &nearZ, 0.01f, 10.0f);
+    ImGui::SliderFloat("Far (proj)", &farZ, 10.0f, 2000.0f);
+    if (farZ <= nearZ + 0.01f) farZ = nearZ + 0.01f;
 
     ImGui::Separator();
     ImGui::Text("Frame %.3f ms (%.1f FPS)",
@@ -973,69 +973,69 @@ void GRoad::DrawUI()
 }
 
 void GRoad::MoveToNextFrame() {
-    const UINT64 fence = m_fenceValues[m_frameIndex];
-    HR(m_commandQueue->Signal(m_fence.Get(), fence), "Queue->Signal");
-    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
-    if (m_fence->GetCompletedValue() < m_fenceValues[m_frameIndex]) {
-        HR(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent), "Fence->SetEventOnCompletion");
-        WaitForSingleObject(m_fenceEvent, INFINITE);
+    const UINT64 fence = fenceValues[frameIndex];
+    HR(commandQueue->Signal(fence.Get(), fence), "Queue->Signal");
+    frameIndex = swapChain->GetCurrentBackBufferIndex();
+    if (fence->GetCompletedValue() < fenceValues[frameIndex]) {
+        HR(fence->SetEventOnCompletion(fenceValues[frameIndex], fenceEvent), "Fence->SetEventOnCompletion");
+        WaitForSingleObject(fenceEvent, INFINITE);
     }
-    m_fenceValues[m_frameIndex] = fence + 1;
+    fenceValues[frameIndex] = fence + 1;
 }
 
 void GRoad::WaitForGPU() {
-    HR(m_commandQueue->Signal(m_fence.Get(), m_fenceValues[m_frameIndex]), "Queue->Signal(wait)");
-    HR(m_fence->SetEventOnCompletion(m_fenceValues[m_frameIndex], m_fenceEvent), "Fence->SetEventOnCompletion(wait)");
-    WaitForSingleObject(m_fenceEvent, INFINITE);
-    m_fenceValues[m_frameIndex]++;
+    HR(commandQueue->Signal(fence.Get(), fenceValues[frameIndex]), "Queue->Signal(wait)");
+    HR(fence->SetEventOnCompletion(fenceValues[frameIndex], fenceEvent), "Fence->SetEventOnCompletion(wait)");
+    WaitForSingleObject(fenceEvent, INFINITE);
+    fenceValues[frameIndex]++;
 }
 
 void GRoad::OnResize(UINT newW, UINT newH) {
-    if (newW == m_width && newH == m_height) return;
+    if (newW == width && newH == height) return;
     WaitForGPU();
 
     for (UINT i = 0; i < FrameCount; ++i) {
-        m_renderTargets[i].Reset();
-        m_fenceValues[i] = m_fenceValues[m_frameIndex];
+        renderTargets[i].Reset();
+        fenceValues[i] = fenceValues[frameIndex];
     }
 
     DXGI_SWAP_CHAIN_DESC desc{};
-    HR(m_swapChain->GetDesc(&desc), "SwapChain->GetDesc");
-    HR(m_swapChain->ResizeBuffers(FrameCount, newW, newH, desc.BufferDesc.Format, desc.Flags),
+    HR(swapChain->GetDesc(&desc), "SwapChain->GetDesc");
+    HR(swapChain->ResizeBuffers(FrameCount, newW, newH, desc.BufferDesc.Format, desc.Flags),
         "SwapChain->ResizeBuffers");
-    m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+    frameIndex = swapChain->GetCurrentBackBufferIndex();
     CreateRTVs();
 
     CreateDepth(newW, newH);
     CreateSceneColor(newW, newH);
     CreatePostprocessDescriptors();
 
-    m_width = newW; m_height = newH;
-    m_viewport.Width = float(m_width);
-    m_viewport.Height = float(m_height);
-    m_scissor.right = (LONG)m_width;
-    m_scissor.bottom = (LONG)m_height;
+    width = newW; height = newH;
+    viewport.Width = float(width);
+    viewport.Height = float(height);
+    scissor.right = (LONG)width;
+    scissor.bottom = (LONG)height;
 
-    m_triangle.OnResize(newW, newH);
-    m_whirligig.OnResize(newW, newH);
-    m_jelly.OnResize(newW, newH);
+    triangle.OnResize(newW, newH);
+    whirligig.OnResize(newW, newH);
+    jelly.OnResize(newW, newH);
 }
 
 void GRoad::Cleanup() {
-    if (m_commandQueue && m_fence) WaitForGPU();
+    if (commandQueue && fence) WaitForGPU();
 
     ImGui_ImplDX12_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
 
-    m_triangle.Cleanup();
-    m_whirligig.Cleanup();
-    m_jelly.Cleanup();
+    triangle.Cleanup();
+    whirligig.Cleanup();
+    jelly.Cleanup();
 
-    if (m_fogCB && m_fogCBMapped) {
-        m_fogCB->Unmap(0, nullptr);
-        m_fogCBMapped = nullptr;
+    if (fogCB && fogCBMapped) {
+        fogCB->Unmap(0, nullptr);
+        fogCBMapped = nullptr;
     }
 
-    if (m_fenceEvent) CloseHandle(m_fenceEvent);
+    if (fenceEvent) CloseHandle(fenceEvent);
 }

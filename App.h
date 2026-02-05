@@ -57,68 +57,68 @@ private:
     void DrawFogPostprocess();
 
 private:
-    HWND m_hwnd;
-    UINT m_width;
-    UINT m_height;
+    HWND hwnd;
+    UINT width;
+    UINT height;
 
-    ComPtr<IDXGIFactory6>          m_factory;
-    ComPtr<ID3D12Device>           m_device;
-    ComPtr<ID3D12CommandQueue>     m_commandQueue;
-    ComPtr<IDXGISwapChain3>        m_swapChain;
-    ComPtr<ID3D12DescriptorHeap>   m_rtvHeap;
-    ComPtr<ID3D12Resource>         m_renderTargets[FrameCount];
-    UINT                           m_rtvDescriptorSize;
-    UINT                           m_frameIndex;
+    ComPtr<IDXGIFactory6>          factory;
+    ComPtr<ID3D12Device>           device;
+    ComPtr<ID3D12CommandQueue>     commandQueue;
+    ComPtr<IDXGISwapChain3>        swapChain;
+    ComPtr<ID3D12DescriptorHeap>   rtvHeap;
+    ComPtr<ID3D12Resource>         renderTargets[FrameCount];
+    UINT                           rtvDescriptorSize;
+    UINT                           frameIndex;
 
-    ComPtr<ID3D12DescriptorHeap>   m_dsvHeap;
-    ComPtr<ID3D12Resource>         m_depth;   // typeless resource (R32_TYPELESS)
-    D3D12_CPU_DESCRIPTOR_HANDLE    m_dsv;     // DSV view (D32_FLOAT)
+    ComPtr<ID3D12DescriptorHeap>   dsvHeap;
+    ComPtr<ID3D12Resource>         depth;   // typeless resource (R32_TYPELESS)
+    D3D12_CPU_DESCRIPTOR_HANDLE    dsv;     // DSV view (D32_FLOAT)
 
-    ComPtr<ID3D12CommandAllocator> m_commandAllocators[FrameCount];
-    ComPtr<ID3D12GraphicsCommandList> m_commandList;
+    ComPtr<ID3D12CommandAllocator> commandAllocators[FrameCount];
+    ComPtr<ID3D12GraphicsCommandList> commandList;
 
-    ComPtr<ID3D12Fence>            m_fence;
-    UINT64                         m_fenceValues[FrameCount];
-    HANDLE                         m_fenceEvent;
+    ComPtr<ID3D12Fence>            fence;
+    UINT64                         fenceValues[FrameCount];
+    HANDLE                         fenceEvent;
 
-    D3D12_VIEWPORT                 m_viewport;
-    D3D12_RECT                     m_scissor;
+    D3D12_VIEWPORT                 viewport;
+    D3D12_RECT                     scissor;
 
     // ---- Shared shader-visible heap: ImGui + postprocess SRVs
-    ComPtr<ID3D12DescriptorHeap>   m_srvHeap;
-    UINT                           m_srvDescSize = 0;
+    ComPtr<ID3D12DescriptorHeap>   srvHeap;
+    UINT                           srvDescSize = 0;
 
     // ---- Offscreen scene render target (color)
-    ComPtr<ID3D12DescriptorHeap>   m_sceneRtvHeap;
-    ComPtr<ID3D12Resource>         m_sceneColor;
-    D3D12_CPU_DESCRIPTOR_HANDLE    m_sceneRtv{};
+    ComPtr<ID3D12DescriptorHeap>   sceneRtvHeap;
+    ComPtr<ID3D12Resource>         sceneColor;
+    D3D12_CPU_DESCRIPTOR_HANDLE    sceneRtv{};
 
     // ---- Postprocess fog pipeline
-    ComPtr<ID3D12RootSignature>    m_fogRootSig;
-    ComPtr<ID3D12PipelineState>    m_fogPSO;
+    ComPtr<ID3D12RootSignature>    fogRootSig;
+    ComPtr<ID3D12PipelineState>    fogPSO;
 
-    ComPtr<ID3D12Resource>         m_fogCB;
-    uint8_t* m_fogCBMapped = nullptr;
-    UINT                           m_fogCBStride = 0;
+    ComPtr<ID3D12Resource>         fogCB;
+    uint8_t* fogCBMapped = nullptr;
+    UINT                           fogCBStride = 0;
 
     // ---- Fog parameters (UI)
-    bool  m_fogEnabled = true;
-    float m_fogDensity = 6.0f;
-    float m_fogStart = 2.0f;
-    float m_fogEnd = 25.0f;
-    float m_fogColor[3] = { 0.6f, 0.7f, 0.9f };
+    bool  fogEnabled = true;
+    float fogDensity = 6.0f;
+    float fogStart = 2.0f;
+    float fogEnd = 25.0f;
+    float fogColor[3] = { 0.6f, 0.7f, 0.9f };
 
     // Must match your projection near/far (set these to your camera values)
-    float m_nearZ = 0.1f;
-    float m_farZ = 100.0f;
+    float nearZ = 0.1f;
+    float farZ = 100.0f;
 
     enum class SceneKind : int { Triangle = 0, Whirligig = 1, Jelly = 2 };
-    SceneKind                      m_sceneKind;
-    TriangleScene                  m_triangle;
-    WhirligigScene                 m_whirligig;
-    JellyScene                     m_jelly;
+    SceneKind                      sceneKind;
+    TriangleScene                  triangle;
+    WhirligigScene                 whirligig;
+    JellyScene                     jelly;
 
-    std::chrono::steady_clock::time_point m_prev;
+    std::chrono::steady_clock::time_point prev;
 
-    float m_menuWidth;
+    float menuWidth;
 };
