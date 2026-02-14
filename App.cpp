@@ -985,20 +985,23 @@ void GRoad::DrawUI()
     }
 
     // ---- Postprocess fog UI ----
-    ImGui::Separator();
-    ImGui::Text("Postprocess fog");
-    ImGui::Checkbox("Enable fog", &fogEnabled);
-    ImGui::ColorEdit3("Fog color", fogColor);
-    ImGui::SliderFloat("Fog density", &fogDensity, 0.0f, 20.0f);
-    ImGui::SliderFloat("Fog start", &fogStart, 0.0f, 200.0f);
-    ImGui::SliderFloat("Fog end", &fogEnd, 0.01f, 500.0f);
-    if (fogEnd < fogStart) fogEnd = fogStart + 0.01f;
+    if (sceneKind != SceneKind::Cube)
+    {
+        ImGui::Separator();
+        ImGui::Text("Postprocess fog");
+        ImGui::Checkbox("Enable fog", &fogEnabled);
+        ImGui::ColorEdit3("Fog color", fogColor);
+        ImGui::SliderFloat("Fog density", &fogDensity, 0.0f, 20.0f);
+        ImGui::SliderFloat("Fog start", &fogStart, 0.0f, 200.0f);
+        ImGui::SliderFloat("Fog end", &fogEnd, 0.01f, 500.0f);
+        if (fogEnd < fogStart) fogEnd = fogStart + 0.01f;
 
-    ImGui::SliderFloat("Near (proj)", &nearZ, 0.01f, 10.0f);
-    ImGui::SliderFloat("Far (proj)", &farZ, 10.0f, 2000.0f);
-    if (farZ <= nearZ + 0.01f) farZ = nearZ + 0.01f;
+        ImGui::SliderFloat("Near (proj)", &nearZ, 0.01f, 10.0f);
+        ImGui::SliderFloat("Far (proj)", &farZ, 10.0f, 2000.0f);
+        if (farZ <= nearZ + 0.01f) farZ = nearZ + 0.01f;
 
-    ImGui::Separator();
+        ImGui::Separator();
+    }
     ImGui::Text("Frame %.3f ms (%.1f FPS)",
         dt * 1000.0f,
         dt > 0 ? (1.0f / dt) : 0.0f);
