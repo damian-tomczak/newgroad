@@ -17,6 +17,7 @@
 #include "WhirligigScene.h"
 #include "JellyScene.h"
 #include "CubeScene.h"
+#include "FogScene.h"
 
 static const UINT FrameCount = 2;
 
@@ -115,12 +116,13 @@ private:
     float nearZ = 0.1f;
     float farZ = 100.0f;
 
-    enum class SceneKind : int { Triangle = 0, Whirligig = 1, Jelly = 2, Cube = 3 };
+    enum class SceneKind : int { Triangle = 0, Whirligig = 1, Jelly = 2, Cube = 3, Implicit = 4 };
     SceneKind                      sceneKind;
     TriangleScene                  triangle;
     WhirligigScene                 whirligig;
     JellyScene                     jelly;
     CubeScene                      cube;
+    FogScene                       implicit;
 
     std::chrono::steady_clock::time_point prev;
 
