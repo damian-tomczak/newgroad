@@ -211,7 +211,7 @@ void GRoad::LoadSettings()
     in >> savedScene;
     if (!in) return;
 
-    savedScene = std::clamp(savedScene, 0, 2);
+    savedScene = std::clamp(savedScene, 0, 3);
     sceneKind = static_cast<SceneKind>(savedScene);
 }
 
@@ -487,6 +487,7 @@ void GRoad::InitScenes() {
     triangle.Init(device.Get());
     whirligig.Init(device.Get());
     jelly.Init(device.Get());
+    cube.Init(device.Get());
 }
 
 void GRoad::MainLoop() {
@@ -676,8 +677,11 @@ void GRoad::RenderFrame() {
     else if (sceneKind == SceneKind::Whirligig) {
         whirligig.Render(commandList.Get());
     }
-    else {
+    else if (sceneKind == SceneKind::Jelly) {
         jelly.Render(commandList.Get());
+    }
+    else {
+        cube.Render(commandList.Get());
     }
 
     // Prepare SRVs for postprocess
@@ -805,11 +809,11 @@ void GRoad::DrawUI()
     ImGui::Begin("Scenes", nullptr, flags);
     ImGui::SliderFloat("Menu width", &menuWidth, minWidth, maxWidth);
 
-    const char* items[] = { "Triangle", "Whirligig", "Jelly" };
+    const char* items[] = { "Triangle", "Whirligig", "Jelly", "Cube" };
     int idx = static_cast<int>(sceneKind);
 
     if (ImGui::Combo("Scene", &idx, items, IM_ARRAYSIZE(items))) {
-        idx = std::clamp(idx, 0, 2);
+        idx = std::clamp(idx, 0, 3);
         sceneKind = static_cast<SceneKind>(idx);
         SaveSettings();
     }
@@ -972,22 +976,32 @@ void GRoad::DrawUI()
 
         ImGui::Separator();
     }
+    else if (sceneKind == SceneKind::Cube)
+    {
+        ImGui::Separator();
+        ImGui::Text("Rotating cube scene");
+        SliderFloatWithInput("Rotation speed", &cube.rotationSpeed, 0.0f, 5.0f);
+        ImGui::Separator();
+    }
 
     // ---- Postprocess fog UI ----
-    ImGui::Separator();
-    ImGui::Text("Postprocess fog");
-    ImGui::Checkbox("Enable fog", &fogEnabled);
-    ImGui::ColorEdit3("Fog color", fogColor);
-    ImGui::SliderFloat("Fog density", &fogDensity, 0.0f, 20.0f);
-    ImGui::SliderFloat("Fog start", &fogStart, 0.0f, 200.0f);
-    ImGui::SliderFloat("Fog end", &fogEnd, 0.01f, 500.0f);
-    if (fogEnd < fogStart) fogEnd = fogStart + 0.01f;
+    if (sceneKind != SceneKind::Cube)
+    {
+        ImGui::Separator();
+        ImGui::Text("Postprocess fog");
+        ImGui::Checkbox("Enable fog", &fogEnabled);
+        ImGui::ColorEdit3("Fog color", fogColor);
+        ImGui::SliderFloat("Fog density", &fogDensity, 0.0f, 20.0f);
+        ImGui::SliderFloat("Fog start", &fogStart, 0.0f, 200.0f);
+        ImGui::SliderFloat("Fog end", &fogEnd, 0.01f, 500.0f);
+        if (fogEnd < fogStart) fogEnd = fogStart + 0.01f;
 
-    ImGui::SliderFloat("Near (proj)", &nearZ, 0.01f, 10.0f);
-    ImGui::SliderFloat("Far (proj)", &farZ, 10.0f, 2000.0f);
-    if (farZ <= nearZ + 0.01f) farZ = nearZ + 0.01f;
+        ImGui::SliderFloat("Near (proj)", &nearZ, 0.01f, 10.0f);
+        ImGui::SliderFloat("Far (proj)", &farZ, 10.0f, 2000.0f);
+        if (farZ <= nearZ + 0.01f) farZ = nearZ + 0.01f;
 
-    ImGui::Separator();
+        ImGui::Separator();
+    }
     ImGui::Text("Frame %.3f ms (%.1f FPS)",
         dt * 1000.0f,
         dt > 0 ? (1.0f / dt) : 0.0f);
@@ -1042,6 +1056,7 @@ void GRoad::OnResize(UINT newW, UINT newH) {
     triangle.OnResize(newW, newH);
     whirligig.OnResize(newW, newH);
     jelly.OnResize(newW, newH);
+    cube.OnResize(newW, newH);
 }
 
 void GRoad::Cleanup() {
@@ -1056,6 +1071,7 @@ void GRoad::Cleanup() {
     triangle.Cleanup();
     whirligig.Cleanup();
     jelly.Cleanup();
+    cube.Cleanup();
 
     if (fogCB && fogCBMapped) {
         fogCB->Unmap(0, nullptr);
