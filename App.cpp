@@ -211,7 +211,7 @@ void GRoad::LoadSettings()
     in >> savedScene;
     if (!in) return;
 
-    savedScene = std::clamp(savedScene, 0, 3);
+    savedScene = std::clamp(savedScene, 0, 4);
     sceneKind = static_cast<SceneKind>(savedScene);
 }
 
@@ -488,6 +488,7 @@ void GRoad::InitScenes() {
     whirligig.Init(device.Get());
     jelly.Init(device.Get());
     cube.Init(device.Get());
+    implicit.Init(device.Get());
 }
 
 void GRoad::MainLoop() {
@@ -634,7 +635,8 @@ void GRoad::DrawFogPostprocess()
     cb.fogColor[1] = fogColor[1];
     cb.fogColor[2] = fogColor[2];
 
-    cb.fogDensity = fogEnabled ? fogDensity : 0.0f;
+    bool applyFog = fogEnabled && sceneKind != SceneKind::Cube && sceneKind != SceneKind::Implicit;
+    cb.fogDensity = applyFog ? fogDensity : 0.0f;
     cb.fogStart = fogStart;
     cb.fogEnd = fogEnd;
     cb.nearZ = nearZ;
@@ -680,8 +682,11 @@ void GRoad::RenderFrame() {
     else if (sceneKind == SceneKind::Jelly) {
         jelly.Render(commandList.Get());
     }
-    else {
+    else if (sceneKind == SceneKind::Cube) {
         cube.Render(commandList.Get());
+    }
+    else {
+        implicit.Render(commandList.Get());
     }
 
     // Prepare SRVs for postprocess
@@ -809,11 +814,11 @@ void GRoad::DrawUI()
     ImGui::Begin("Scenes", nullptr, flags);
     ImGui::SliderFloat("Menu width", &menuWidth, minWidth, maxWidth);
 
-    const char* items[] = { "Triangle", "Whirligig", "Jelly", "Cube" };
+    const char* items[] = { "Triangle", "Whirligig", "Jelly", "Cube", "Implicit Ellipsoid" };
     int idx = static_cast<int>(sceneKind);
 
     if (ImGui::Combo("Scene", &idx, items, IM_ARRAYSIZE(items))) {
-        idx = std::clamp(idx, 0, 3);
+        idx = std::clamp(idx, 0, 4);
         sceneKind = static_cast<SceneKind>(idx);
         SaveSettings();
     }
@@ -983,9 +988,32 @@ void GRoad::DrawUI()
         SliderFloatWithInput("Rotation speed", &cube.rotationSpeed, 0.0f, 5.0f);
         ImGui::Separator();
     }
+    else
+    {
+        ImGui::Separator();
+        ImGui::Text("CPU ray-cast implicit ellipsoid");
+        SliderFloatWithInput("rx", &implicit.rx, 0.05f, 10.0f);
+        SliderFloatWithInput("ry", &implicit.ry, 0.05f, 10.0f);
+        SliderFloatWithInput("rz", &implicit.rz, 0.05f, 10.0f);
+        SliderFloatWithInput("shininess", &implicit.shininess, 1.0f, 256.0f);
+        SliderFloatWithInput("rotX", &implicit.rotX, -3.14f, 3.14f);
+        SliderFloatWithInput("rotY", &implicit.rotY, -3.14f, 3.14f);
+        SliderFloatWithInput("zoom", &implicit.zoom, 0.1f, 10.0f);
+        SliderFloatWithInput("panX", &implicit.panX, -3.0f, 3.0f);
+        SliderFloatWithInput("panY", &implicit.panY, -3.0f, 3.0f);
+        SliderFloatWithInput("viewSize", &implicit.viewSize, 0.2f, 5.0f);
+
+        const char* rsItems[] = { "1x", "2x", "4x" };
+        int rsIndex = (implicit.renderScale == 1) ? 0 : (implicit.renderScale == 2) ? 1 : 2;
+        if (ImGui::Combo("Render scale", &rsIndex, rsItems, IM_ARRAYSIZE(rsItems))) {
+            implicit.renderScale = (rsIndex == 0) ? 1 : (rsIndex == 1) ? 2 : 4;
+            implicit.OnResize(width, height);
+        }
+        ImGui::Separator();
+    }
 
     // ---- Postprocess fog UI ----
-    if (sceneKind != SceneKind::Cube)
+    if (sceneKind != SceneKind::Cube && sceneKind != SceneKind::Implicit)
     {
         ImGui::Separator();
         ImGui::Text("Postprocess fog");
@@ -1057,6 +1085,7 @@ void GRoad::OnResize(UINT newW, UINT newH) {
     whirligig.OnResize(newW, newH);
     jelly.OnResize(newW, newH);
     cube.OnResize(newW, newH);
+    implicit.OnResize(newW, newH);
 }
 
 void GRoad::Cleanup() {
@@ -1072,6 +1101,7 @@ void GRoad::Cleanup() {
     whirligig.Cleanup();
     jelly.Cleanup();
     cube.Cleanup();
+    implicit.Cleanup();
 
     if (fogCB && fogCBMapped) {
         fogCB->Unmap(0, nullptr);
